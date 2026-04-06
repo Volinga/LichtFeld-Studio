@@ -22,6 +22,7 @@
 #include <fstream>
 #include <mutex>
 #include <nvimgcodec.h>
+
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -1523,6 +1524,358 @@ namespace lfs::io {
             throw std::runtime_error("JPEG encoding failed: " +
                                      std::string(processing_status_to_string(encode_status)));
         }
+        return output_buffer;
+    }
+
+
+//std::vector<uint8_t> encode_jpeg2k_from_gpu_u16(
+//        const uint16_t* d_image,
+//        uint32_t height,
+//        uint32_t width,
+//        uint32_t channels,
+//        cudaStream_t stream) {
+//        if (channels != 3) {
+//            throw std::runtime_error("Only RGB interleaved supported");
+//        }
+//
+//        // -----------------------------
+//        // 1. Create instance
+//        // -----------------------------
+//        nvimgcodecInstance_t instance{};
+//
+//        nvimgcodecInstanceCreateInfo_t instance_info{};
+//        instance_info.struct_type = NVIMGCODEC_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+//        instance_info.struct_size = sizeof(instance_info);
+//
+//        // CRITICAL on Windows
+//        instance_info.load_builtin_modules = 1;
+//        instance_info.load_extension_modules = 1;
+//
+//        auto status = nvimgcodecInstanceCreate(&instance, &instance_info);
+//        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+//            throw std::runtime_error("Failed to create instance");
+//        }
+//
+//        // -----------------------------
+//        // 2. Describe input image (GPU interleaved uint16)
+//        // -----------------------------
+//        nvimgcodecImageInfo_t image_info{};
+//        image_info.struct_type = NVIMGCODEC_STRUCTURE_TYPE_IMAGE_INFO;
+//        image_info.struct_size = sizeof(image_info);
+//
+//        image_info.sample_format = NVIMGCODEC_SAMPLEFORMAT_I_RGB;
+//        image_info.color_spec = NVIMGCODEC_COLORSPEC_SRGB;
+//        image_info.chroma_subsampling = NVIMGCODEC_SAMPLING_444;
+//
+//        image_info.num_planes = 1;
+//        image_info.plane_info[0].height = height;
+//        image_info.plane_info[0].width = width;
+//        image_info.plane_info[0].num_channels = 3;
+//        image_info.plane_info[0].row_stride = width * channels * sizeof(uint16_t);
+//        image_info.plane_info[0].sample_type = NVIMGCODEC_SAMPLE_DATA_TYPE_UINT16;
+//
+//        image_info.buffer_kind = NVIMGCODEC_IMAGE_BUFFER_KIND_STRIDED_DEVICE;
+//        image_info.buffer = const_cast<uint16_t*>(d_image);
+//        image_info.buffer_size = static_cast<size_t>(height) * width * channels * sizeof(uint16_t);
+//        image_info.cuda_stream = stream;
+//
+//        nvimgcodecImage_t image{};
+//        status = nvimgcodecImageCreate(instance, &image, &image_info);
+//        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+//            nvimgcodecInstanceDestroy(instance);
+//            throw std::runtime_error("Failed to create image");
+//        }
+//
+//        // -----------------------------
+//        // 3. Output codestream (to memory)
+//        // -----------------------------
+//        std::vector<uint8_t> output;
+//
+//        nvimgcodecImageInfo_t out_info{};
+//        out_info.struct_type = NVIMGCODEC_STRUCTURE_TYPE_IMAGE_INFO;
+//        out_info.struct_size = sizeof(out_info);
+//
+//        // IMPORTANT: this is the working name in your setup
+//        std::snprintf(out_info.codec_name, sizeof(out_info.codec_name), "%s", "jpeg2k");
+//
+//        nvimgcodecCodeStream_t code_stream{};
+//
+//        status = nvimgcodecCodeStreamCreateToHostMem(
+//            instance,
+//            &code_stream,
+//            &output,
+//            [](void* ctx, size_t size) -> unsigned char* {
+//                auto* v = reinterpret_cast<std::vector<uint8_t>*>(ctx);
+//                v->resize(size);
+//                return v->data();
+//            },
+//            &out_info);
+//
+//        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+//            nvimgcodecImageDestroy(image);
+//            nvimgcodecInstanceDestroy(instance);
+//            throw std::runtime_error("Failed to create codestream");
+//        }
+//
+//        // -----------------------------
+//        // 4. Encode params (JPEG2000 lossless)
+//        // -----------------------------
+//        nvimgcodecEncodeParams_t encode_params{};
+//        encode_params.struct_type = NVIMGCODEC_STRUCTURE_TYPE_ENCODE_PARAMS;
+//        encode_params.struct_size = sizeof(encode_params);
+//        encode_params.quality_type = NVIMGCODEC_QUALITY_TYPE_LOSSLESS;
+//        encode_params.quality_value = 0.0f;
+//
+//        nvimgcodecJpeg2kEncodeParams_t j2k_params{};
+//        j2k_params.struct_type = NVIMGCODEC_STRUCTURE_TYPE_JPEG2K_ENCODE_PARAMS;
+//        j2k_params.struct_size = sizeof(j2k_params);
+//
+//        // CRITICAL: lossless
+//        //j2k_params.reversible = 1;
+//
+//        // sane defaults (from sample)
+//        j2k_params.code_block_w = 64;
+//        j2k_params.code_block_h = 64;
+//        j2k_params.num_resolutions = 6;
+//        j2k_params.prog_order = NVIMGCODEC_JPEG2K_PROG_ORDER_RPCL;
+//
+//        encode_params.struct_next = &j2k_params;
+//
+//        // -----------------------------
+//        // 5. Create encoder
+//        // -----------------------------
+//        nvimgcodecEncoder_t encoder{};
+//
+//        nvimgcodecExecutionParams_t exec_params{};
+//        exec_params.struct_type = NVIMGCODEC_STRUCTURE_TYPE_EXECUTION_PARAMS;
+//        exec_params.struct_size = sizeof(exec_params);
+//        exec_params.device_id = NVIMGCODEC_DEVICE_CURRENT;
+//
+//        status = nvimgcodecEncoderCreate(instance, &encoder, &exec_params, nullptr);
+//        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+//            nvimgcodecCodeStreamDestroy(code_stream);
+//            nvimgcodecImageDestroy(image);
+//            nvimgcodecInstanceDestroy(instance);
+//            throw std::runtime_error("Failed to create encoder");
+//        }
+//
+//
+//        // ------------------------
+//        // -----------------------------
+//        // Check if encoder can encode
+//        // -----------------------------
+//        nvimgcodecProcessingStatus_t can_encode_status{};
+//        std::memset(&can_encode_status, 0, sizeof(can_encode_status));
+//
+//        status = nvimgcodecEncoderCanEncode(
+//            encoder,
+//            &image,       // pointer to input image
+//            &code_stream, // pointer to output stream
+//            1,            // batch size
+//            &encode_params,
+//            &can_encode_status,
+//            1 // force_format = 1 (allow fallback)
+//        );
+//
+//        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+//            throw std::runtime_error("nvimgcodecEncoderCanEncode call failed");
+//        }
+//
+//        // -----------------------------
+//        // Interpret result
+//        // -----------------------------
+//        if (can_encode_status != NVIMGCODEC_PROCESSING_STATUS_SUCCESS) {
+//            std::ostringstream oss;
+//            oss << "Encoder cannot encode input. Status = " << can_encode_status;
+//            throw std::runtime_error(oss.str());
+//        }
+//
+//        // -----------------------------
+//        // 6. Encode
+//        // -----------------------------
+//        nvimgcodecFuture_t future{};
+//
+//        status = nvimgcodecEncoderEncode(
+//            encoder,
+//            &image,
+//            &code_stream,
+//            1,
+//            &encode_params,
+//            &future);
+//
+//        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+//            nvimgcodecEncoderDestroy(encoder);
+//            nvimgcodecCodeStreamDestroy(code_stream);
+//            nvimgcodecImageDestroy(image);
+//            nvimgcodecInstanceDestroy(instance);
+//            throw std::runtime_error("Encode launch failed");
+//        }
+//
+//        nvimgcodecFutureWaitForAll(future);
+//
+//        // -----------------------------
+//        // 7. Check status
+//        // -----------------------------
+//        nvimgcodecProcessingStatus_t proc_status{};
+//        size_t status_size = 0;
+//
+//        nvimgcodecFutureGetProcessingStatus(future, &proc_status, &status_size);
+//
+//        // -----------------------------
+//        // 8. Cleanup
+//        // -----------------------------
+//        nvimgcodecFutureDestroy(future);
+//        nvimgcodecEncoderDestroy(encoder);
+//        nvimgcodecCodeStreamDestroy(code_stream);
+//        nvimgcodecImageDestroy(image);
+//        nvimgcodecInstanceDestroy(instance);
+//
+//        if (proc_status != NVIMGCODEC_PROCESSING_STATUS_SUCCESS) {
+//            throw std::runtime_error("JPEG2000 encoding failed (likely missing encoder plugin)");
+//        }
+//
+//        return output;
+//    }
+
+    std::vector<uint8_t> NvCodecImageLoader::encode_to_jpeg2k(
+        const lfs::core::Tensor& image,
+        void* cuda_stream) {
+
+        using namespace lfs::core;
+
+        if (!impl_->encoder) {
+            throw std::runtime_error("JPEG2000 encoder not available");
+        }
+
+        std::lock_guard<std::mutex> lock(impl_->encoder_mutex);
+
+        const auto& shape = image.shape();
+        if (shape.rank() != 3) {
+            throw std::runtime_error("Expected 3D tensor, got " + std::to_string(shape.rank()) + "D");
+        }
+
+        const bool is_hwc = (shape[2] == 3);
+        const bool is_chw = !is_hwc && (shape[0] == 3 && shape[1] > 3 && shape[2] > 3);
+        const uint32_t height = (is_chw ? shape[1] : shape[0]);
+        const uint32_t width = static_cast<uint32_t>(is_chw ? shape[2] : shape[1]);
+        const uint32_t channels = 3;
+
+        // 1. Convert to uint16: scale float [0,1] -> [0, 65535], transpose CHW->HWC if needed
+        // Using float16 as uint16 container
+        Tensor hwc_uint16 = lfs::core::Tensor::zeros(
+            lfs::core::TensorShape({height, width, channels}),
+            lfs::core::Device::CUDA, lfs::core::DataType::Float16);
+
+        auto convert_to_uint16 = [height, width, channels](const Tensor& in, Tensor& out){
+            cuda::launch_float32_hwc_to_uint16_hwc(
+                    reinterpret_cast<const float*>(in.data_ptr()),
+                    reinterpret_cast<uint16_t*>(out.data_ptr()),
+                    height, width, channels, nullptr);
+        };
+
+        if (is_chw) {
+            convert_to_uint16(image.to(DataType::Float32).permute({1, 2, 0}).contiguous(), hwc_uint16);
+        } else {
+            convert_to_uint16(image.to(DataType::Float32), hwc_uint16);
+        }
+
+        // 2. Ensure the tensor is on CUDA and contiguous
+        if (hwc_uint16.device() != Device::CUDA) {
+            hwc_uint16 = hwc_uint16.to(Device::CUDA);
+        }
+        hwc_uint16 = hwc_uint16.contiguous();
+
+        // 3. Fill image descriptor: uint16, stride doubled vs uint8
+        nvimgcodecImageInfo_t image_info{};
+        image_info.struct_type = NVIMGCODEC_STRUCTURE_TYPE_IMAGE_INFO;
+        image_info.struct_size = sizeof(nvimgcodecImageInfo_t);
+        image_info.sample_format = NVIMGCODEC_SAMPLEFORMAT_I_RGB;
+        image_info.color_spec = NVIMGCODEC_COLORSPEC_SRGB;
+        image_info.chroma_subsampling = NVIMGCODEC_SAMPLING_444;
+        image_info.num_planes = 1;
+        image_info.plane_info[0].height = height;
+        image_info.plane_info[0].width = width;
+        image_info.plane_info[0].num_channels = 3;
+        image_info.plane_info[0].row_stride = static_cast<size_t>(width) * 3 * sizeof(uint16_t);
+        image_info.plane_info[0].sample_type = NVIMGCODEC_SAMPLE_DATA_TYPE_UINT16;
+        image_info.buffer_kind = NVIMGCODEC_IMAGE_BUFFER_KIND_STRIDED_DEVICE;
+        image_info.buffer = hwc_uint16.data_ptr();
+        image_info.buffer_size = static_cast<size_t>(height) * width * 3 * sizeof(uint16_t);
+        image_info.cuda_stream = static_cast<cudaStream_t>(cuda_stream);
+
+        nvimgcodecImage_t nv_image;
+        auto status = nvimgcodecImageCreate(impl_->instance, &nv_image, &image_info);
+        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+            throw std::runtime_error("Failed to create image for encoding: " +
+                                     std::string(nvimgcodec_status_to_string(status)));
+        }
+
+        // 4. Output stream: select jpeg2k codec
+        std::vector<uint8_t> output_buffer;
+
+        nvimgcodecImageInfo_t output_info{};
+        output_info.struct_type = NVIMGCODEC_STRUCTURE_TYPE_IMAGE_INFO;
+        output_info.struct_size = sizeof(nvimgcodecImageInfo_t);
+        std::snprintf(output_info.codec_name, sizeof(output_info.codec_name), "%s", "jpeg2k");
+
+        nvimgcodecCodeStream_t code_stream;
+        status = nvimgcodecCodeStreamCreateToHostMem(
+            impl_->instance, &code_stream, &output_buffer,
+            [](void* ctx, size_t req_size) -> unsigned char* {
+                auto* vec = static_cast<std::vector<uint8_t>*>(ctx);
+                vec->resize(req_size);
+                return vec->data();
+            },
+            &output_info);
+
+        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+            nvimgcodecImageDestroy(nv_image);
+            throw std::runtime_error("Failed to create output code stream for JPEG2000");
+        }
+
+        // 5. JPEG2000 lossless params: reversible DWT 5/3, chained via struct_next
+        nvimgcodecJpeg2kEncodeParams_t j2k_params{};
+        j2k_params.struct_type = NVIMGCODEC_STRUCTURE_TYPE_JPEG2K_ENCODE_PARAMS;
+        j2k_params.struct_size = sizeof(nvimgcodecJpeg2kEncodeParams_t);
+        j2k_params.struct_next = nullptr;
+        j2k_params.num_resolutions = 6;
+        j2k_params.code_block_w = 64;
+        j2k_params.code_block_h = 64;
+        j2k_params.prog_order = NVIMGCODEC_JPEG2K_PROG_ORDER_RPCL;
+
+        nvimgcodecEncodeParams_t encode_params{};
+        encode_params.struct_type = NVIMGCODEC_STRUCTURE_TYPE_ENCODE_PARAMS;
+        encode_params.struct_size = sizeof(nvimgcodecEncodeParams_t);
+        encode_params.struct_next = &j2k_params; // chain JPEG2000-specific params
+        encode_params.quality_value = 0.0f;      // unused in lossless mode
+        encode_params.quality_type = NVIMGCODEC_QUALITY_TYPE_LOSSLESS;
+
+        // 6. Launch async encode and wait
+        nvimgcodecFuture_t encode_future;
+        status = nvimgcodecEncoderEncode(
+            impl_->encoder, &nv_image, &code_stream, 1, &encode_params, &encode_future);
+
+        if (status != NVIMGCODEC_STATUS_SUCCESS) {
+            nvimgcodecCodeStreamDestroy(code_stream);
+            nvimgcodecImageDestroy(nv_image);
+            throw std::runtime_error("JPEG2000 encode launch failed");
+        }
+
+        nvimgcodecFutureWaitForAll(encode_future);
+
+        // 7. Check result and release all resources
+        nvimgcodecProcessingStatus_t encode_status;
+        size_t status_size;
+        nvimgcodecFutureGetProcessingStatus(encode_future, &encode_status, &status_size);
+        nvimgcodecFutureDestroy(encode_future);
+        nvimgcodecCodeStreamDestroy(code_stream);
+        nvimgcodecImageDestroy(nv_image);
+
+        if (encode_status != NVIMGCODEC_PROCESSING_STATUS_SUCCESS) {
+            throw std::runtime_error("JPEG2000 encoding failed: " +
+                                     std::string(processing_status_to_string(encode_status)));
+        }
+
         return output_buffer;
     }
 
