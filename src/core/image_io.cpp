@@ -596,8 +596,6 @@ namespace lfs::core {
 
     void free_image(void* img) { std::free(img); }
 
-    void free_image(void* img) { std::free(img); }
-
     bool save_img_data(const std::filesystem::path& p, const std::tuple<unsigned char*, int, int, int>& image_data) {
         init_oiio(); // Assuming this initializes OIIO like in your load_image
 
