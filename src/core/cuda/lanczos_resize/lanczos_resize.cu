@@ -278,8 +278,6 @@ namespace lfs::core {
             return Tensor();
         }
 
-         LOG_INFO("lanczos_resize RUNNING");
-
         if (input.dtype() == DataType::UInt8) {
             return detail::lanczos_resize_impl<uint8_t>(
                 input, output_h, output_w, kernel_size, cuda_stream);
