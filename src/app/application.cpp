@@ -175,16 +175,19 @@ namespace lfs::app {
                         return 1;
                     }
 
-                    auto trainer = std::make_unique<training::Trainer>(scene);
                     auto manager = std::make_shared<vis::TrainerManager>();
 
-                    if (!params->python_scripts.empty()) {
-                        trainer->set_python_scripts(params->python_scripts);
-                        vis::gui::panels::PythonScriptManagerState::getInstance().setScripts(params->python_scripts);
-                    }
+                    {
+                        auto trainer = std::make_unique<training::Trainer>(scene);
 
-                    trainer->setParams(*params);
-                    manager->setTrainer(std::move(trainer));
+                        if (!params->python_scripts.empty()) {
+                            trainer->set_python_scripts(params->python_scripts);
+                            vis::gui::panels::PythonScriptManagerState::getInstance().setScripts(params->python_scripts);
+                        }
+
+                        trainer->setParams(*params);
+                        manager->setTrainer(std::move(trainer));
+                    }
 
                     core::Tensor::trim_memory_pool();
 
@@ -209,9 +212,8 @@ namespace lfs::app {
                         manager->waitForCompletion();
                     }
 
-                    // TODO
-                    if (const auto result = trainer->train(); !result) {
-                        LOG_ERROR("Training error: {}", result.error());
+                    if (manager->getStateMachine().getFinishReason() == vis::FinishReason::Error) {
+                        LOG_ERROR("Training error: {}", manager->getLastError());
                         if (!params->python_scripts.empty()) {
                             core::Tensor::shutdown_memory_pool();
                             core::PinnedMemoryAllocator::instance().shutdown();

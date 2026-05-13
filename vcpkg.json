@@ -81,6 +81,14 @@
   ],
   "overrides": [
     {
+      "name": "cppzmq",
+      "version": "4.11.0"
+    },
+    {
+      "name": "zeromq",
+      "version": "4.3.5#3"
+    },
+    {
       "name": "args",
       "version": "6.4.8"
     },
