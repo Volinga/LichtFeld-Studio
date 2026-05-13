@@ -9,6 +9,8 @@
 #include "core/tensor.hpp"
 #include <cmath>
 #include <string>
+#include <sstream>
+#include <iomanip>
 
 namespace lfs::core::debug {
 
@@ -25,12 +27,30 @@ namespace lfs::core::debug {
         [[nodiscard]] bool is_valid() const { return !has_nan && !has_inf; }
 
         [[nodiscard]] std::string to_string() const {
+            // if (is_valid()) {
+            //     return std::format("valid (min={:.6f}, max={:.6f}, mean={:.6f})",
+            //                        min_val, max_val, mean_val);
+            // }
+            // return std::format("INVALID (nan={}, inf={}, min={:.6f}, max={:.6f})",
+            //                    nan_count, inf_count, min_val, max_val);
+            std::ostringstream oss;
+            oss.setf(std::ios::fixed, std::ios::floatfield);
+            oss << std::setprecision(6);
+
             if (is_valid()) {
-                return std::format("valid (min={:.6f}, max={:.6f}, mean={:.6f})",
-                                   min_val, max_val, mean_val);
+                oss << "valid (min=" << min_val
+                    << ", max=" << max_val
+                    << ", mean=" << mean_val
+                    << ")";
+            } else {
+                oss << "INVALID (nan=" << nan_count
+                    << ", inf=" << inf_count
+                    << ", min=" << min_val
+                    << ", max=" << max_val
+                    << ")";
             }
-            return std::format("INVALID (nan={}, inf={}, min={:.6f}, max={:.6f})",
-                               nan_count, inf_count, min_val, max_val);
+
+            return oss.str();
         }
     };
 
@@ -75,8 +95,18 @@ namespace lfs::core::debug {
                 return "shape mismatch";
             if (!dtypes_match)
                 return "dtype mismatch";
-            return std::format("max_diff={:.6e}, mean_diff={:.6e}, diff_count={}/{}",
-                               max_abs_diff, mean_abs_diff, num_different, total_elements);
+            // return std::format("max_diff={:.6e}, mean_diff={:.6e}, diff_count={}/{}",
+            //                    max_abs_diff, mean_abs_diff, num_different, total_elements);
+            std::ostringstream oss;
+            oss.setf(std::ios::scientific, std::ios::floatfield);
+            oss << std::setprecision(6);
+
+            oss << "max_diff=" << max_abs_diff
+                << ", mean_diff=" << mean_abs_diff
+                << ", diff_count=" << num_different
+                << "/" << total_elements;
+
+            return oss.str();
         }
     };
 
@@ -102,8 +132,21 @@ namespace lfs::core::debug {
         bool is_cuda = false;
 
         [[nodiscard]] std::string to_string() const {
-            return std::format("shape={}, dtype={}, device={}, min={:.4f}, max={:.4f}, mean={:.4f}, std={:.4f}",
-                               shape.str(), dtype_name(dtype), is_cuda ? "cuda" : "cpu", min, max, mean, std);
+            // return std::format("shape={}, dtype={}, device={}, min={:.4f}, max={:.4f}, mean={:.4f}, std={:.4f}",
+            //                    shape.str(), dtype_name(dtype), is_cuda ? "cuda" : "cpu", min, max, mean, std);
+            std::ostringstream oss;
+            oss.setf(std::ios::fixed, std::ios::floatfield);
+            oss << std::setprecision(4);
+
+            oss << "shape=" << shape.str()
+                << ", dtype=" << dtype_name(dtype)
+                << ", device=" << (is_cuda ? "cuda" : "cpu")
+                << ", min=" << min
+                << ", max=" << max
+                << ", mean=" << mean
+                << ", std=" << std;
+
+            return oss.str();
         }
     };
 

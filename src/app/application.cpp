@@ -17,7 +17,10 @@
 #include "io/cache_image_loader.hpp"
 #include "training/trainer.hpp"
 #include "training/training_setup.hpp"
+#include "visualizer/training/training_manager.hpp"
 #include "visualizer/visualizer.hpp"
+#include "tcp/include/tcp_publisher.hpp"
+#include "tcp/include/tcp_responder.hpp"
 
 #include "app/mcp_gui_tools.hpp"
 #include "io/video/video_encoder.hpp"
@@ -173,19 +176,40 @@ namespace lfs::app {
                     }
 
                     auto trainer = std::make_unique<training::Trainer>(scene);
+                    auto manager = std::make_shared<vis::TrainerManager>();
 
                     if (!params->python_scripts.empty()) {
                         trainer->set_python_scripts(params->python_scripts);
                         vis::gui::panels::PythonScriptManagerState::getInstance().setScripts(params->python_scripts);
                     }
 
-                    if (const auto result = trainer->initialize(*params); !result) {
-                        LOG_ERROR("Failed to initialize trainer: {}", result.error());
-                        return 1;
-                    }
+                    trainer->setParams(*params);
+                    manager->setTrainer(std::move(trainer));
 
                     core::Tensor::trim_memory_pool();
 
+                    if (params->optimization.tcp_connection) {
+                        tcp::ResponderServer responder(params->optimization.tcp_server_connection_port, manager);
+                        tcp::PublisherServer publisher(params->optimization.tcp_broadcast_connection_port, manager);
+
+                        responder.start();
+                        publisher.start();
+                        LOG_INFO("Responder server listening on {}", responder.getEndpoint());
+                        LOG_INFO("Publisher server listening on {}", publisher.getEndpoint());
+
+                        manager->startTraining();
+                        manager->waitForCompletion();
+
+                        publisher.stop();
+                        responder.stop();
+                        responder.join();
+                    }
+                    else {
+                        manager->startTraining();
+                        manager->waitForCompletion();
+                    }
+
+                    // TODO
                     if (const auto result = trainer->train(); !result) {
                         LOG_ERROR("Training error: {}", result.error());
                         if (!params->python_scripts.empty()) {

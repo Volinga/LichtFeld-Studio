@@ -104,6 +104,9 @@ namespace lfs::core {
             float init_opacity = 0.5f;
             float init_scaling = 0.1f;
             int max_cap = 1000000;
+            int tcp_server_connection_port = -1;              // Set the TCP connection port when tcp connection is in use for server requests, -1 for auto
+            int tcp_broadcast_connection_port = -1;           // Set the TCP connection port when tcp connection is in use for broadcasting, -1 for auto
+
             std::vector<size_t> eval_steps = {7'000, 30'000};  // Steps to evaluate the model
             std::vector<size_t> save_steps = {7'000, 30'000};  // Steps to save the model
             bool bg_modulation = false;                        // Enable sinusoidal background modulation
@@ -115,6 +118,7 @@ namespace lfs::core {
             bool debug_python = false;                         // Start debugpy listener for plugin debugging
             int debug_python_port = 5678;                      // Port for debugpy listener
             std::string strategy = std::string(kStrategyMRNF); // Optimization strategy: mcmc, mrnf, igs+.
+            bool tcp_connection = false;                      // Use TCP connection for signals and events
 
             // Mask parameters
             MaskMode mask_mode = MaskMode::None;      // Attention mask mode
