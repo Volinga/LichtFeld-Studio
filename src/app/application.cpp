@@ -17,8 +17,8 @@
 #include "io/cache_image_loader.hpp"
 #include "training/trainer.hpp"
 #include "training/training_setup.hpp"
-#include "visualizer/training/training_manager.hpp"
 #include "visualizer/visualizer.hpp"
+#include "visualizer/training/training_manager.hpp"
 #include "tcp/include/tcp_publisher.hpp"
 #include "tcp/include/tcp_responder.hpp"
 

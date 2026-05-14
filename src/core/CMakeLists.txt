@@ -80,7 +80,6 @@ target_include_directories(lfs_core
         ${CMAKE_CURRENT_SOURCE_DIR}/tensor  # For internal/ headers
 )
 
-
 target_link_libraries(lfs_core
     PUBLIC
         lfs_logger

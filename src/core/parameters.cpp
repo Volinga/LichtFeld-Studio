@@ -115,6 +115,7 @@ namespace lfs::core {
             opt_json["max_cap"] = max_cap;
             opt_json["tcp_server_connection_port"] = tcp_server_connection_port;
             opt_json["tcp_broadcast_connection_port"] = tcp_broadcast_connection_port;
+            opt_json["tcp_connection"] = tcp_connection;
             opt_json["eval_steps"] = eval_steps;
             opt_json["save_steps"] = save_steps;
             opt_json["enable_eval"] = enable_eval;
@@ -122,7 +123,6 @@ namespace lfs::core {
             opt_json["headless"] = headless;
             const auto canonical_strategy = canonical_strategy_name(strategy);
             opt_json["strategy"] = canonical_strategy.empty() ? strategy : std::string(canonical_strategy);
-            opt_json["tcp_connection"] = tcp_connection;
             opt_json["mip_filter"] = mip_filter;
             opt_json["use_bilateral_grid"] = use_bilateral_grid;
             opt_json["bilateral_grid_X"] = bilateral_grid_X;
@@ -304,12 +304,6 @@ namespace lfs::core {
             if (json.contains("max_cap")) {
                 params.max_cap = json["max_cap"];
             }
-            if (json.contains("tcp_server_connection_port")) {
-                params.tcp_server_connection_port = json["tcp_server_connection_port"];
-            }
-            if (json.contains("tcp_broadcast_connection_port")) {
-                params.tcp_broadcast_connection_port = json["tcp_broadcast_connection_port"];
-            }
 
             if (json.contains("strategy")) {
                 const std::string strategy = json["strategy"];
@@ -342,6 +336,12 @@ namespace lfs::core {
             }
             if (json.contains("headless")) {
                 params.headless = json["headless"];
+            }
+            if (json.contains("tcp_server_connection_port")) {
+                params.tcp_server_connection_port = json["tcp_server_connection_port"];
+            }
+            if (json.contains("tcp_broadcast_connection_port")) {
+                params.tcp_broadcast_connection_port = json["tcp_broadcast_connection_port"];
             }
             if (json.contains("tcp_connection")) {
                 params.tcp_connection = json["tcp_connection"];

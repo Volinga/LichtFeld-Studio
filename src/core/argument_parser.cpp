@@ -124,8 +124,6 @@ namespace {
             ::args::Flag random(init_group, "random", "Use random initialization instead of SfM", {"random"});
             ::args::ValueFlag<int> init_num_pts(init_group, "init_num_pts", "Number of random initialization points", {"init-num-pts"});
             ::args::ValueFlag<float> init_extent(init_group, "init_extent", "Extent of random initialization", {"init-extent"});
-            ::args::ValueFlag<int> tcp_server_connection_port(parser, "tcp_server_connection_port", "TCP connection port when tcp connection is in use for server requests, -1 for auto", {"tcp-server-port"});
-            ::args::ValueFlag<int> tcp_broadcast_connection_port(parser, "tcp_broadcast_connection_port", "TCP connection port when tcp connection is in use for broadcasting, -1 for auto", {"tcp-broadcast-port"});
 
             // =============================================================================
             // DATASET OPTIONS
@@ -230,6 +228,8 @@ namespace {
             ::args::ValueFlag<std::string> log_file(logging_group, "file", "Optional log file path", {"log-file"});
             ::args::ValueFlag<std::string> log_filter(logging_group, "pattern", "Filter log messages (glob: *foo*, regex: \\\\d+)", {"log-filter"});
             ::args::Flag tcp_connection(parser, "tcp_connection", "Use TCP connection for signals and events", {"tcp-connection"});
+            ::args::ValueFlag<int> tcp_server_connection_port(parser, "tcp_server_connection_port", "TCP connection port when tcp connection is in use for server requests, -1 for auto", {"tcp-server-port"});
+            ::args::ValueFlag<int> tcp_broadcast_connection_port(parser, "tcp_broadcast_connection_port", "TCP connection port when tcp connection is in use for broadcasting, -1 for auto", {"tcp-broadcast-port"});
 
             // =============================================================================
             // EXTENSIONS
@@ -536,6 +536,7 @@ namespace {
                                         no_fs_cache_flag = static_cast<bool>(no_fs_cache),
                                         tcp_server_connection_port_val = tcp_server_connection_port ? std::optional<int>(::args::get(tcp_server_connection_port)) : std::optional<int>(),
                                         tcp_broadcast_connection_port_val = tcp_broadcast_connection_port ? std::optional<int>(::args::get(tcp_broadcast_connection_port)) : std::optional<int>(),
+                                        tcp_connection_flag = bool(tcp_connection),
                                         max_cap_val = cli_option_present({"--max-cap"}) ? std::optional<int>(::args::get(max_cap)) : std::optional<int>(),
                                         config_file_val = cli_option_present({"--config"}) ? std::optional<std::string>(::args::get(config_file)) : std::optional<std::string>(),
                                         images_folder_val = cli_option_present({"--images"}) ? std::optional<std::string>(::args::get(images_folder)) : std::optional<std::string>(),
@@ -568,7 +569,6 @@ namespace {
                                         ppisp_sidecar_path_val = cli_option_present({"--ppisp-sidecar"}) ? std::optional<std::string>(::args::get(ppisp_sidecar_path)) : std::optional<std::string>(),
                                         enable_eval_flag = bool(enable_eval),
                                         headless_flag = bool(headless),
-                                        tcp_connection_flag = bool(tcp_connection),
                                         auto_train_flag = bool(auto_train),
 #ifdef LFS_BUILD_PORTABLE
                                         no_splash_flag = false,
@@ -613,6 +613,7 @@ namespace {
                 setVal(max_cap_val, opt.max_cap);
                 setVal(tcp_server_connection_port_val, opt.tcp_server_connection_port);
                 setVal(tcp_broadcast_connection_port_val, opt.tcp_broadcast_connection_port);
+                setFlag(tcp_connection_flag, opt.tcp_connection);
                 setVal(images_folder_val, ds.images);
                 setVal(test_every_val, ds.test_every);
                 setVal(steps_scaler_val, opt.steps_scaler);
@@ -646,7 +647,6 @@ namespace {
                     opt.use_ppisp = true;
                 setFlag(enable_eval_flag, opt.enable_eval);
                 setFlag(headless_flag, opt.headless);
-                setFlag(tcp_connection_flag, opt.tcp_connection);
                 setFlag(auto_train_flag, opt.auto_train);
                 setFlag(no_splash_flag, opt.no_splash);
                 setFlag(debug_python_flag, opt.debug_python);
