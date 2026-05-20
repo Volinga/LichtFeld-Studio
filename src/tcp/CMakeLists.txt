@@ -22,6 +22,7 @@ target_include_directories(lfs_tcp
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/src/visualizer
         ${CMAKE_SOURCE_DIR}/src/training/include
+        ${CMAKE_SOURCE_DIR}/src/training
         ${CMAKE_SOURCE_DIR}/src/io/include
         ${CMAKE_SOURCE_DIR}/external
 )
