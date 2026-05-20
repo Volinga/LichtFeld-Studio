@@ -8,7 +8,7 @@ lfs::tcp::ResponderServer::ResponderServer(int port, std::shared_ptr<lfs::vis::T
     : TCPServer(port, std::move(trainer_manager_), zmq::socket_type::rep)
     , running_(false)
 {
-    // Wake up every 200ms so recv doesnt hold the program
+    // Wake up every 200ms so recv doesn't hold the program
     socket_.set(zmq::sockopt::rcvtimeo, 200);
 }
 
@@ -85,11 +85,11 @@ nlohmann::json lfs::tcp::ResponderServer::generateResponse(const nlohmann::json&
     }
     else if (command == "stop") {
         trainer_manager_->stopTraining();
-        response["success"] = nullptr;
+        response["success"] = true;
     }
     else if (command == "save_checkpoint") {
         trainer_manager_->requestSaveCheckpoint();
-        response["success"] = nullptr;
+        response["success"] = true;
     }
     else {
         response["success"] = false;

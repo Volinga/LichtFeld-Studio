@@ -31,7 +31,6 @@ target_link_libraries(lfs_tcp
         lfs_visualizer
         lfs_core
         cppzmq
-        cppzmq-static
         nlohmann_json::nlohmann_json
 )
 

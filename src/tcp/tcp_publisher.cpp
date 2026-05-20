@@ -59,7 +59,7 @@ namespace lfs::core::events::state {
     ENABLE_TO_JSON(CudaVersionUnsupported, major, minor, min_major, min_minor);
 }
 
-lfs::tcp::PublisherServer::PublisherServer(int port, std::shared_ptr<vis::TrainerManager> trainer_manager, core::LogLevel level, bool warm_up)
+lfs::tcp::PublisherServer::PublisherServer(int port, std::shared_ptr<lfs::vis::TrainerManager> trainer_manager, core::LogLevel level, bool warm_up)
     : TCPServer(port, std::move(trainer_manager), zmq::socket_type::pub)
     , stopped_(false)
     , level_(level)
@@ -87,10 +87,10 @@ void lfs::tcp::PublisherServer::start() {
             if (in_level < level_) {
                 return;
             }
+            std::lock_guard lock(send_mutex_);
             if (stopped_) {
                 return;
             }
-            std::lock_guard lock(send_mutex_);
             nlohmann::json data{
                 {"message", msg},
                 {"level", core::Logger::to_string(in_level)}

@@ -5,11 +5,13 @@
 #pragma once
 
 #include "tcp_server.hpp"
+#include <atomic>
+#include <thread>
 
 namespace lfs::tcp {
     class ResponderServer : public TCPServer {
     public:
-        explicit ResponderServer(int port, std::shared_ptr<vis::TrainerManager> trainer_manager);
+        explicit ResponderServer(int port, std::shared_ptr<lfs::vis::TrainerManager> trainer_manager);
         ~ResponderServer() override;
         void start() override;
         void stop() override;

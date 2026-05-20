@@ -5,11 +5,17 @@
 #pragma once
 
 #include "tcp_server.hpp"
+#include <mutex>
+#include <atomic>
+#include <vector>
+#include <optional>
+#include <functional>
+#include <core/logger.hpp>
 
 namespace lfs::tcp {
     class PublisherServer : public TCPServer {
     public:
-        PublisherServer(int port, std::shared_ptr<vis::TrainerManager> trainer_manager, core::LogLevel level = core::LogLevel::Info, bool warm_up = true);
+        PublisherServer(int port, std::shared_ptr<lfs::vis::TrainerManager> trainer_manager, core::LogLevel level = core::LogLevel::Info, bool warm_up = true);
         ~PublisherServer() override;
         void start() override;
         void stop() override;
