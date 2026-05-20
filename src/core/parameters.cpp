@@ -113,9 +113,6 @@ namespace lfs::core {
             opt_json["init_opacity"] = init_opacity;
             opt_json["init_scaling"] = init_scaling;
             opt_json["max_cap"] = max_cap;
-            opt_json["tcp_server_connection_port"] = tcp_server_connection_port;
-            opt_json["tcp_broadcast_connection_port"] = tcp_broadcast_connection_port;
-            opt_json["tcp_connection"] = tcp_connection;
             opt_json["eval_steps"] = eval_steps;
             opt_json["save_steps"] = save_steps;
             opt_json["enable_eval"] = enable_eval;
@@ -336,15 +333,6 @@ namespace lfs::core {
             }
             if (json.contains("headless")) {
                 params.headless = json["headless"];
-            }
-            if (json.contains("tcp_server_connection_port")) {
-                params.tcp_server_connection_port = json["tcp_server_connection_port"];
-            }
-            if (json.contains("tcp_broadcast_connection_port")) {
-                params.tcp_broadcast_connection_port = json["tcp_broadcast_connection_port"];
-            }
-            if (json.contains("tcp_connection")) {
-                params.tcp_connection = json["tcp_connection"];
             }
             if (json.contains("mip_filter")) {
                 params.mip_filter = json["mip_filter"];
@@ -567,6 +555,7 @@ namespace lfs::core {
 
                 nlohmann::json json;
                 json["dataset"] = params.dataset.to_json();
+                json["server"] = params.server.to_json();
                 json["optimization"] = opt_copy.to_json();
 
                 const auto now = std::chrono::system_clock::now();
@@ -626,6 +615,31 @@ namespace lfs::core {
             loading_json["print_status_freq_num"] = print_status_freq_num;
 
             return loading_json;
+        }
+
+        nlohmann::json ServerConfig::to_json() const {
+            nlohmann::json json;
+            json["tcp_server_connection_port"] = tcp_server_connection_port;
+            json["tcp_broadcast_connection_port"] = tcp_broadcast_connection_port;
+            json["tcp_connection"] = tcp_connection;
+
+            return json;
+        }
+
+        ServerConfig ServerConfig::from_json(const nlohmann::json& j) {
+            ServerConfig server;
+
+            if (j.contains("tcp_server_connection_port")) {
+                server.tcp_server_connection_port = j["tcp_server_connection_port"].get<int>();
+            }
+            if (j.contains("tcp_broadcast_connection_port")) {
+                server.tcp_broadcast_connection_port = j["tcp_broadcast_connection_port"].get<int>();
+            }
+            if (j.contains("tcp_connection")) {
+                server.tcp_connection = j["tcp_connection"].get<bool>();
+            }
+
+            return server;
         }
 
         nlohmann::json DatasetConfig::to_json() const {

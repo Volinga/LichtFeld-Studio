@@ -199,6 +199,7 @@ namespace lfs::training {
             nlohmann::json params_json;
             params_json["optimization"] = params.optimization.to_json();
             params_json["dataset"] = params.dataset.to_json();
+            params_json["server"] = params.server.to_json();
             if (params.init_path.has_value()) {
                 params_json["init_path"] = params.init_path.value();
             }
@@ -291,6 +292,9 @@ namespace lfs::training {
                     params.optimization = lfs::core::param::OptimizationParameters::from_json(params_json["optimization"]);
                     if (params_json.contains("dataset")) {
                         params.dataset = lfs::core::param::DatasetConfig::from_json(params_json["dataset"]);
+                    }
+                    if (params_json.contains("server")) {
+                        params.server = lfs::core::param::ServerConfig::from_json(params_json["server"]);
                     }
                     if (params_json.contains("init_path")) {
                         params.init_path = params_json["init_path"].get<std::string>();

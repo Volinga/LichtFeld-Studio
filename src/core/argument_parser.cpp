@@ -589,6 +589,7 @@ namespace {
                                         use_edge_map_flag = bool(use_edge_map),
                                         output_name_val = cli_option_present({"--output-name"}) ? std::optional<std::string>(::args::get(output_name)) : std::optional<std::string>()]() {
                 auto& opt = params.optimization;
+                auto& svs = params.server;
                 auto& ds = params.dataset;
 
                 // Simple lambdas to apply if flag/value exists
@@ -611,9 +612,9 @@ namespace {
                 if (no_fs_cache_flag)
                     ds.loading_params.use_fs_cache = false;
                 setVal(max_cap_val, opt.max_cap);
-                setVal(tcp_server_connection_port_val, opt.tcp_server_connection_port);
-                setVal(tcp_broadcast_connection_port_val, opt.tcp_broadcast_connection_port);
-                setFlag(tcp_connection_flag, opt.tcp_connection);
+                setVal(tcp_server_connection_port_val, svs.tcp_server_connection_port);
+                setVal(tcp_broadcast_connection_port_val, svs.tcp_broadcast_connection_port);
+                setFlag(tcp_connection_flag, svs.tcp_connection);
                 setVal(images_folder_val, ds.images);
                 setVal(test_every_val, ds.test_every);
                 setVal(steps_scaler_val, opt.steps_scaler);

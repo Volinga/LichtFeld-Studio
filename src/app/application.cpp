@@ -191,9 +191,9 @@ namespace lfs::app {
 
                     core::Tensor::trim_memory_pool();
 
-                    if (params->optimization.tcp_connection) {
-                        tcp::ResponderServer responder(params->optimization.tcp_server_connection_port, manager);
-                        tcp::PublisherServer publisher(params->optimization.tcp_broadcast_connection_port, manager);
+                    if (params->server.tcp_connection) {
+                        tcp::ResponderServer responder(params->server.tcp_server_connection_port, manager);
+                        tcp::PublisherServer publisher(params->server.tcp_broadcast_connection_port, manager);
 
                         responder.start();
                         publisher.start();
