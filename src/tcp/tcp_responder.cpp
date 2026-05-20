@@ -1,3 +1,7 @@
+/* SPDX-FileCopyrightText: 2025 LichtFeld Studio Authors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
 #include "tcp_responder.hpp"
 
 lfs::tcp::ResponderServer::ResponderServer(int port, std::shared_ptr<lfs::vis::TrainerManager> trainer_manager_)

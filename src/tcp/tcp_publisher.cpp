@@ -1,3 +1,7 @@
+/* SPDX-FileCopyrightText: 2025 LichtFeld Studio Authors
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
 #include "tcp_publisher.hpp"
 #include "core/include/core/events.hpp"
 #include "core/include/core/logger.hpp"
