@@ -573,6 +573,7 @@ namespace lfs::vis {
 
     SelectionResult SelectionService::selectBrush(float x, float y, float radius, SelectionMode mode,
                                                   int camera_index) {
+        LOG_TIMER("SelectionService::selectBrush");
         if (!scene_manager_ || !rendering_manager_) {
             return {false, 0, "Missing managers"};
         }
@@ -594,6 +595,7 @@ namespace lfs::vis {
 
     SelectionResult SelectionService::selectRect(float x0, float y0, float x1, float y1, SelectionMode mode,
                                                  int camera_index) {
+        LOG_TIMER("SelectionService::selectRect");
         if (!scene_manager_ || !rendering_manager_) {
             return {false, 0, "Missing managers"};
         }
@@ -646,6 +648,7 @@ namespace lfs::vis {
 
     SelectionResult SelectionService::selectPolygon(const std::vector<glm::vec2>& vertices,
                                                     SelectionMode mode, int camera_index) {
+        LOG_TIMER("SelectionService::selectPolygon");
         if (!scene_manager_ || !rendering_manager_) {
             return {false, 0, "Missing managers"};
         }
@@ -670,6 +673,7 @@ namespace lfs::vis {
 
     SelectionResult SelectionService::selectLasso(const std::vector<glm::vec2>& vertices,
                                                   const SelectionMode mode, const int camera_index) {
+        LOG_TIMER("SelectionService::selectLasso");
         auto result = selectPolygon(vertices, mode, camera_index);
         if (result.success) {
             return result;
@@ -1342,6 +1346,7 @@ namespace lfs::vis {
                                                       const SelectionFilterState& filters,
                                                       const char* undo_name,
                                                       const bool push_undo) {
+        LOG_TIMER("SelectionService::commitSelection");
         if (!scene_manager_ || !rendering_manager_) {
             return {false, 0, "Missing managers"};
         }
@@ -1610,6 +1615,7 @@ namespace lfs::vis {
 
     bool SelectionService::buildSelectionMaskForInteractiveSession(core::Tensor& selection_out,
                                                                    const bool include_polygon_cursor) {
+        LOG_TIMER("SelectionService::buildSelectionMaskForInteractiveSession");
         auto& session = interactive_selection_;
         if (!session.active || !scene_manager_ || !rendering_manager_) {
             return false;
@@ -1657,6 +1663,7 @@ namespace lfs::vis {
 
     bool SelectionService::buildBrushSelection(const std::vector<glm::vec2>& points, const float radius,
                                                core::Tensor& selection_out) const {
+        LOG_TIMER("SelectionService::buildBrushSelection");
         if (points.empty()) {
             return false;
         }
@@ -1690,6 +1697,7 @@ namespace lfs::vis {
 
     bool SelectionService::buildRectangleSelection(const glm::vec2 start, const glm::vec2 end,
                                                    core::Tensor& selection_out) const {
+        LOG_TIMER("SelectionService::buildRectangleSelection");
         const auto& session = interactive_selection_;
         if (!scene_manager_ || !rendering_manager_ || !session.viewport_context ||
             !session.viewport_context->info.valid() || !session.viewport_context->viewport) {
@@ -1723,6 +1731,7 @@ namespace lfs::vis {
 
     bool SelectionService::buildPolygonSelection(const std::vector<glm::vec2>& points,
                                                  core::Tensor& selection_out) const {
+        LOG_TIMER("SelectionService::buildPolygonSelection");
         if (points.size() < 3) {
             return false;
         }
@@ -1757,6 +1766,7 @@ namespace lfs::vis {
 
     bool SelectionService::buildWorldPolygonSelection(const std::vector<glm::vec3>& world_points,
                                                       core::Tensor& selection_out) const {
+        LOG_TIMER("SelectionService::buildWorldPolygonSelection");
         if (world_points.size() < 3) {
             return false;
         }
