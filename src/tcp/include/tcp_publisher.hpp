@@ -19,6 +19,7 @@ namespace lfs::tcp {
         ~PublisherServer() override;
         void start() override;
         void stop() override;
+        void join() override {}
 
     private:
         static nlohmann::json makeEventMessage(const nlohmann::json& data, const std::string& event_type);

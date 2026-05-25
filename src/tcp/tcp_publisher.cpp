@@ -6,17 +6,6 @@
 #include "core/include/core/events.hpp"
 #include "core/include/core/logger.hpp"
 
-// Create a subscription to an event that sends a broadcast with its corresponding to unsubscribe function
-#define SUBSCRIBE_EVENT(Type)                                                                       \
-    subscriptions_.emplace_back([id = lfs::core::events::state::Type::when([this](const auto& e) {  \
-        std::lock_guard lock(send_mutex_);                                                          \
-        if (stopped_) return;                                                                       \
-        send(makeEventMessage(e, #Type));                                                           \
-    })]() {                                                                                         \
-        ::lfs::event::EventBridge::instance().unsubscribe(                                          \
-            typeid(lfs::core::events::state::Type), id);                                            \
-    })
-
 // Define a transform to JSON for each event structure
 #define ENABLE_TO_JSON(event, ...) NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(event, __VA_ARGS__)
 namespace lfs::core::events::state {
@@ -58,99 +47,113 @@ namespace lfs::core::events::state {
     // CUDA version check
     ENABLE_TO_JSON(CudaVersionUnsupported, major, minor, min_major, min_minor);
 }
+#undef ENABLE_TO_JSON
 
-lfs::tcp::PublisherServer::PublisherServer(int port, std::shared_ptr<lfs::vis::TrainerManager> trainer_manager, core::LogLevel level, bool warm_up)
-    : TCPServer(port, std::move(trainer_manager), zmq::socket_type::pub)
-    , stopped_(false)
-    , level_(level)
-    , log_handler_token_(std::nullopt)
-{
-    // Wait for subs to connect
-    if (warm_up) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    }
-}
+// Create a subscription to an event that sends a broadcast with its corresponding to unsubscribe function
+#define SUBSCRIBE_EVENT(Type)                                                                       \
+    subscriptions_.emplace_back([id = lfs::core::events::state::Type::when([this](const auto& e) {  \
+        std::lock_guard lock(send_mutex_);                                                          \
+        if (stopped_) return;                                                                       \
+        send(makeEventMessage(e, #Type));                                                           \
+    })]() {                                                                                         \
+        ::lfs::event::EventBridge::instance().unsubscribe(                                          \
+            typeid(lfs::core::events::state::Type), id);                                            \
+    })
 
-lfs::tcp::PublisherServer::~PublisherServer() {
-    PublisherServer::stop();
-}
+namespace lfs::tcp {
 
-void lfs::tcp::PublisherServer::start() {
-    if (!subscriptions_.empty()) {
-        // start() called twice without stop() — stop first to avoid duplicate subscriptions.
-        stop();
-    }
-    stopped_ = false;
-
-    log_handler_token_ = core::Logger::get().add_log_handler(
-        [this](core::LogLevel in_level, const std::source_location& loc, std::string_view msg) {
-            if (in_level < level_) {
-                return;
-            }
-            std::lock_guard lock(send_mutex_);
-            if (stopped_) {
-                return;
-            }
-            nlohmann::json data{
-                {"message", msg},
-                {"level", core::Logger::to_string(in_level)}
-            };
-            send(makeEventMessage(data, "log"));
-        }
-    );
-
-    SUBSCRIBE_EVENT(TrainingStarted);
-    SUBSCRIBE_EVENT(TrainingProgress);
-    SUBSCRIBE_EVENT(TrainingPaused);
-    SUBSCRIBE_EVENT(TrainingResumed);
-    SUBSCRIBE_EVENT(TrainingCompleted);
-    SUBSCRIBE_EVENT(TrainingStopped);
-    //SUBSCRIBE_EVENT(SceneLoaded);
-    //SUBSCRIBE_EVENT(SceneCleared);
-    SUBSCRIBE_EVENT(ModelUpdated);
-    //SUBSCRIBE_EVENT(SceneChanged);
-    SUBSCRIBE_EVENT(PLYAdded);
-    SUBSCRIBE_EVENT(PLYRemoved);
-    SUBSCRIBE_EVENT(NodeReparented);
-    SUBSCRIBE_EVENT(DatasetLoadStarted);
-    SUBSCRIBE_EVENT(DatasetLoadProgress);
-    SUBSCRIBE_EVENT(DatasetLoadCompleted);
-    SUBSCRIBE_EVENT(ConfigLoadFailed);
-    SUBSCRIBE_EVENT(FileDropFailed);
-    SUBSCRIBE_EVENT(EvaluationStarted);
-    SUBSCRIBE_EVENT(EvaluationProgress);
-    SUBSCRIBE_EVENT(EvaluationCompleted);
-    SUBSCRIBE_EVENT(CheckpointSaved);
-    SUBSCRIBE_EVENT(DiskSpaceSaveFailed);
-    SUBSCRIBE_EVENT(MemoryUsage);
-    SUBSCRIBE_EVENT(FrameRendered);
-    SUBSCRIBE_EVENT(CudaVersionUnsupported);
-    SUBSCRIBE_EVENT(KeyframeListChanged);
-    SUBSCRIBE_EVENT(ExportCompleted);
-    SUBSCRIBE_EVENT(ExportFailed);
-    SUBSCRIBE_EVENT(VideoExportCompleted);
-    SUBSCRIBE_EVENT(VideoExportFailed);
-}
-
-void lfs::tcp::PublisherServer::stop() {
+    PublisherServer::PublisherServer(int port, std::shared_ptr<lfs::vis::TrainerManager> trainer_manager, core::LogLevel level, bool warm_up)
+        : TCPServer(port, std::move(trainer_manager), zmq::socket_type::pub)
+        , stopped_(false)
+        , level_(level)
+        , log_handler_token_(std::nullopt)
     {
-        std::lock_guard lock(send_mutex_);
-        stopped_ = true;
+        // Wait for subs to connect
+        if (warm_up) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
     }
-    for (auto& unsubscribe : subscriptions_) {
-        unsubscribe();
+
+    PublisherServer::~PublisherServer() {
+        PublisherServer::stop();
     }
-    subscriptions_.clear();
-    if (log_handler_token_.has_value()) {
-        core::Logger::get().remove_log_handler(log_handler_token_.value());
-        log_handler_token_ = std::nullopt; // prevent double-removal on a second stop()/dtor call
+
+    void PublisherServer::start() {
+        if (!subscriptions_.empty()) {
+            // start() called twice without stop() — stop first to avoid duplicate subscriptions.
+            stop();
+        }
+        stopped_ = false;
+
+        log_handler_token_ = core::Logger::get().add_log_handler(
+            [this](core::LogLevel in_level, const std::source_location& loc, std::string_view msg) {
+                if (in_level < level_) {
+                    return;
+                }
+                std::lock_guard lock(send_mutex_);
+                if (stopped_) {
+                    return;
+                }
+                nlohmann::json data{
+                    {"message", msg},
+                    {"level", core::Logger::to_string(in_level)}
+                };
+                send(makeEventMessage(data, "log"));
+            }
+        );
+
+        SUBSCRIBE_EVENT(TrainingStarted);
+        SUBSCRIBE_EVENT(TrainingProgress);
+        SUBSCRIBE_EVENT(TrainingPaused);
+        SUBSCRIBE_EVENT(TrainingResumed);
+        SUBSCRIBE_EVENT(TrainingCompleted);
+        SUBSCRIBE_EVENT(TrainingStopped);
+        SUBSCRIBE_EVENT(ModelUpdated);
+        SUBSCRIBE_EVENT(PLYAdded);
+        SUBSCRIBE_EVENT(PLYRemoved);
+        SUBSCRIBE_EVENT(NodeReparented);
+        SUBSCRIBE_EVENT(DatasetLoadStarted);
+        SUBSCRIBE_EVENT(DatasetLoadProgress);
+        SUBSCRIBE_EVENT(DatasetLoadCompleted);
+        SUBSCRIBE_EVENT(ConfigLoadFailed);
+        SUBSCRIBE_EVENT(FileDropFailed);
+        SUBSCRIBE_EVENT(EvaluationStarted);
+        SUBSCRIBE_EVENT(EvaluationProgress);
+        SUBSCRIBE_EVENT(EvaluationCompleted);
+        SUBSCRIBE_EVENT(CheckpointSaved);
+        SUBSCRIBE_EVENT(DiskSpaceSaveFailed);
+        SUBSCRIBE_EVENT(MemoryUsage);
+        SUBSCRIBE_EVENT(FrameRendered);
+        SUBSCRIBE_EVENT(CudaVersionUnsupported);
+        SUBSCRIBE_EVENT(KeyframeListChanged);
+        SUBSCRIBE_EVENT(ExportCompleted);
+        SUBSCRIBE_EVENT(ExportFailed);
+        SUBSCRIBE_EVENT(VideoExportCompleted);
+        SUBSCRIBE_EVENT(VideoExportFailed);
+    }
+
+    void PublisherServer::stop() {
+        {
+            std::lock_guard lock(send_mutex_);
+            stopped_ = true;
+        }
+        for (auto& unsubscribe : subscriptions_) {
+            unsubscribe();
+        }
+        subscriptions_.clear();
+        if (log_handler_token_.has_value()) {
+            core::Logger::get().remove_log_handler(log_handler_token_.value());
+            log_handler_token_ = std::nullopt; // prevent double-removal on a second stop()/dtor call
+        }
+    }
+
+    nlohmann::json PublisherServer::makeEventMessage(const nlohmann::json& data, const std::string& event_type) {
+        return {
+                {"command", "event"},
+                {"event_type", event_type},
+                {"data", data}
+        };
     }
 }
 
-nlohmann::json lfs::tcp::PublisherServer::makeEventMessage(const nlohmann::json& data, const std::string& event_type) {
-    return {
-        {"command", "event"},
-        {"event_type", event_type},
-        {"data", data}
-    };
-}
+#undef SUBSCRIBE_EVENT

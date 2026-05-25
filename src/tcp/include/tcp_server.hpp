@@ -11,14 +11,14 @@
 
 namespace lfs::tcp {
     class TCPServer {
-        static constexpr int kNumberOfThreads = 2;
+        static constexpr int kNumberOfThreads = 2; // To handle async network I/O in ZMQ
 
     public:
         TCPServer(int port, std::shared_ptr<lfs::vis::TrainerManager> trainer_manager, zmq::socket_type type);
         virtual ~TCPServer() = default;
         virtual void start() = 0;
-        virtual void stop();
-        virtual void join();
+        virtual void stop() = 0;
+        virtual void join() = 0;
         [[nodiscard]] std::string getEndpoint() const;
 
     protected:
