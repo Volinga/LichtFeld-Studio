@@ -589,6 +589,7 @@
     "home": "主页",
     "fullscreen": "全屏",
     "toggle_ui": "切换UI",
+    "asset_manager": "资源管理器",
     "splat_rendering": "Splat渲染",
     "point_cloud": "点云",
     "gaussian_rings": "高斯环",

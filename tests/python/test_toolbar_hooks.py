@@ -489,6 +489,9 @@ def test_viewport_overlay_template_moves_tools_left_and_transform_numbers_center
         "origin_pivot",
         "bounds_center_pivot",
     )
+    utility_toolbar_tooltip_keys = (
+        "asset_manager",
+    )
     selection_tooltip_keys = (
         "selection_panel",
         "selection_tool",
@@ -577,6 +580,7 @@ def test_viewport_overlay_template_moves_tools_left_and_transform_numbers_center
             "home",
             "fullscreen",
             "toggle_ui",
+            "asset_manager",
         )
         forbidden_shortcut_fragments = (
             "(1)",
@@ -622,6 +626,8 @@ def test_viewport_overlay_template_moves_tools_left_and_transform_numbers_center
         for key in (*transform_tooltip_keys, *transform_dynamic_tooltip_keys):
             assert data.get("tooltip", {}).get(key), f"{locale_path.name} missing tooltip.{key}"
         for key in transform_toolbar_tooltip_keys:
+            assert data.get("toolbar", {}).get(key), f"{locale_path.name} missing toolbar.{key}"
+        for key in utility_toolbar_tooltip_keys:
             assert data.get("toolbar", {}).get(key), f"{locale_path.name} missing toolbar.{key}"
     assert "Space: {{transform_space_label}}" not in rml
     assert "Pivot: {{transform_pivot_label}}" not in rml
@@ -680,7 +686,18 @@ def test_viewport_toolbar_update_syncs_utility_records(toolbar_module, monkeypat
     monkeypatch.setattr(lf_stub.ui, "get_pivot_mode", lambda: 0, raising=False)
     monkeypatch.setattr(lf_stub.ui, "get_split_view_mode", lambda: "single", raising=False)
     monkeypatch.setattr(lf_stub.ui, "is_sequencer_visible", lambda: False, raising=False)
-    monkeypatch.setattr(lf_stub.ui, "is_panel_enabled", lambda _panel_id: False, raising=False)
+    monkeypatch.setattr(
+        lf_stub.ui,
+        "tr",
+        lambda key: {"toolbar.asset_manager": "Assets"}.get(key, key),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        lf_stub.ui,
+        "is_panel_enabled",
+        lambda panel_id: panel_id == "lfs.asset_manager",
+        raising=False,
+    )
     monkeypatch.setattr(module, "histogram_mode_available", lambda _context: False)
 
     module.reset_overlay_state()
@@ -692,9 +709,16 @@ def test_viewport_toolbar_update_syncs_utility_records(toolbar_module, monkeypat
 
     camera_buttons = model.handle.record_updates["camera_mode_buttons"]
     primary_buttons = model.handle.record_updates["utility_primary_buttons"]
+    extra_buttons = model.handle.record_updates["utility_extra_buttons"]
     render_group = model.handle.record_updates["render_group_buttons"][0]
     assert len(camera_buttons) == 3
     assert [button["action"] for button in primary_buttons] == ["home", "fullscreen", "toggle_ui"]
+    assert [button["button_id"] for button in extra_buttons] == ["util-asset-manager", "util-sequencer"]
+    assert extra_buttons[0]["action"] == "toggle_panel"
+    assert extra_buttons[0]["value"] == "lfs.asset_manager"
+    assert extra_buttons[0]["icon_src"] == "../icon/archive.png"
+    assert extra_buttons[0]["tooltip_text"] == "Assets"
+    assert extra_buttons[0]["selected"] is True
     assert render_group["action"] == "render_group"
     assert render_group["icon_src"] == "../icon/blob.png"
     assert render_group["selected"] is False

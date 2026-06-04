@@ -522,6 +522,7 @@ class _GizmoToolbarController:
 
 
 class _UtilityToolbarController:
+    _ASSET_MANAGER_PANEL_ID = "lfs.asset_manager"
     _CAMERA_MODE_SPECS = (
         ("camera-orbit", "orbit", "Orbit Camera"),
         ("world", "trackball", "Free Orbit Camera"),
@@ -620,7 +621,17 @@ class _UtilityToolbarController:
         render_mode_buttons = []
         render_group_buttons = []
         projection_buttons = []
-        utility_extra_buttons = []
+        utility_extra_buttons = [
+            _button_record(
+                "util-asset-manager",
+                "toggle_panel",
+                self._ASSET_MANAGER_PANEL_ID,
+                _icon_src("archive"),
+                tooltip_key="toolbar.asset_manager",
+                tooltip_text="Asset Manager",
+                selected=lf.ui.is_panel_enabled(self._ASSET_MANAGER_PANEL_ID),
+            )
+        ]
         utility_bottom_buttons = []
         if has_render_manager:
             for icon_name, mode_id, tooltip_key, tooltip_text in self._RENDER_MODE_SPECS:

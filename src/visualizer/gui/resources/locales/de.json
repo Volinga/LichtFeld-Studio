@@ -759,6 +759,7 @@
     "home": "Start",
     "fullscreen": "Vollbild",
     "toggle_ui": "UI umschalten",
+    "asset_manager": "Asset Manager",
     "splat_rendering": "Splat Rendering",
     "point_cloud": "Punktwolke",
     "gaussian_rings": "Gaussian Ringe",

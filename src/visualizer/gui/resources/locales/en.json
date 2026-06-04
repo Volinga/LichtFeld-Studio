@@ -762,6 +762,7 @@
     "home": "Home",
     "fullscreen": "Fullscreen",
     "toggle_ui": "Toggle UI",
+    "asset_manager": "Asset Manager",
     "splat_rendering": "Splat Rendering",
     "point_cloud": "Point Cloud",
     "gaussian_rings": "Gaussian Rings",

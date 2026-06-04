@@ -759,6 +759,7 @@
     "home": "Accueil",
     "fullscreen": "Plein Écran",
     "toggle_ui": "Basculer UI",
+    "asset_manager": "Gestionnaire d'Actifs",
     "splat_rendering": "Rendu Splat",
     "point_cloud": "Nuage de Points",
     "gaussian_rings": "Anneaux Gaussiens",
