@@ -34,7 +34,11 @@ def _install_lf_stub(monkeypatch):
 
     lf_stub = ModuleType("lichtfeld")
     lf_stub.ui = SimpleNamespace(
-        PanelSpace=SimpleNamespace(FLOATING="FLOATING", BOTTOM_DOCK="BOTTOM_DOCK", LEFT_DOCK="LEFT_DOCK"),
+        PanelSpace=SimpleNamespace(
+            FLOATING="FLOATING",
+            BOTTOM_DOCK="BOTTOM_DOCK",
+            LEFT_DOCK="LEFT_DOCK",
+        ),
         PanelHeightMode=SimpleNamespace(FILL="FILL", CONTENT="CONTENT"),
         tr=lambda key: key,
     )
@@ -218,6 +222,22 @@ def _make_asset():
 def test_asset_manager_uses_dirty_update_policy(asset_manager_panel_module):
     assert asset_manager_panel_module.AssetManagerPanel.update_policy == "dirty"
     assert "update_interval_ms" not in asset_manager_panel_module.AssetManagerPanel.__dict__
+
+
+def test_asset_manager_remains_left_dock_panel(asset_manager_panel_module):
+    assert (
+        asset_manager_panel_module.AssetManagerPanel.space
+        == asset_manager_panel_module.lf.ui.PanelSpace.LEFT_DOCK
+    )
+    assert asset_manager_panel_module.AssetManagerPanel.order == 20
+
+
+def test_builtin_registration_keeps_asset_manager_closed_by_default():
+    panels_source = (
+        Path(__file__).resolve().parents[2] / "src" / "python" / "lfs_plugins" / "panels.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'set_panel_enabled("lfs.asset_manager", False)' in panels_source
 
 
 def test_asset_manager_requests_update_from_reactive_store(asset_manager_panel_module, monkeypatch):

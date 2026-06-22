@@ -168,3 +168,38 @@ def test_viewport_overlay_toolbar_origin_tracks_viewport_content_offset():
     assert "const float viewport_content_offset = viewport_layout_.pos.x - screen.work_pos.x;" in gui_manager_cpp
     assert "float primary_toolbar_x = viewport_content_offset;" in gui_manager_cpp
     assert "rml_viewport_overlay_.setViewportContentOffset(viewport_content_offset);" in gui_manager_cpp
+
+
+def test_scene_header_hosts_asset_manager_launcher():
+    scene_rml = (
+        PROJECT_ROOT
+        / "src"
+        / "visualizer"
+        / "gui"
+        / "rmlui"
+        / "resources"
+        / "scene_tree.rml"
+    ).read_text(encoding="utf-8")
+    scene_rcss = (
+        PROJECT_ROOT
+        / "src"
+        / "visualizer"
+        / "gui"
+        / "rmlui"
+        / "resources"
+        / "scene_tree.rcss"
+    ).read_text(encoding="utf-8")
+    scene_cpp = (
+        PROJECT_ROOT / "src" / "visualizer" / "gui" / "scene_panel_native.cpp"
+    ).read_text(encoding="utf-8")
+
+    assert 'id="asset-manager-button"' in scene_rml
+    assert 'data-tooltip="toolbar.asset_manager"' in scene_rml
+    assert ".scene-header-icon-button" in scene_rcss
+    assert "width: 30dp;" in scene_rcss
+    assert "height: 30dp;" in scene_rcss
+    assert "width: 20dp;" in scene_rcss
+    assert "height: 20dp;" in scene_rcss
+    assert 'resolveRmlImageSource("icon/archive.png")' in scene_cpp
+    assert 'panel_registry.is_panel_enabled("lfs.asset_manager")' in scene_cpp
+    assert 'panel_registry.set_panel_enabled("lfs.asset_manager", !currently_open);' in scene_cpp

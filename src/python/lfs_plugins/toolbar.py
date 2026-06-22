@@ -690,7 +690,6 @@ class _GizmoToolbarController:
 
 
 class _UtilityToolbarController:
-    _ASSET_MANAGER_PANEL_ID = "lfs.asset_manager"
     _INPUT_SETTINGS_PANEL_ID = "lfs.input_settings"
     _PLUGIN_MARKETPLACE_PANEL_ID = "lfs.plugin_marketplace"
     _CAMERA_MODE_SPECS = (
@@ -778,15 +777,6 @@ class _UtilityToolbarController:
                 tooltip_key="toolbar.viewport_export",
                 tooltip_text="Viewport Export",
                 selected=self._is_viewport_export_visible(),
-            ),
-            _button_record(
-                "util-asset-manager",
-                "toggle_panel",
-                self._ASSET_MANAGER_PANEL_ID,
-                _icon_src("archive"),
-                tooltip_key="toolbar.asset_manager",
-                tooltip_text="Asset Manager",
-                selected=_panel_enabled(self._ASSET_MANAGER_PANEL_ID),
             ),
             _button_record(
                 "util-plugin-marketplace",
@@ -1173,13 +1163,6 @@ class _ViewportToolbarController:
         selected_getter = getattr(lf, "get_selected_node_names", None)
         selected_nodes = tuple(call([], selected_getter) or []) if callable(selected_getter) else ()
 
-        asset_manager_enabled = bool(
-            call(
-                False,
-                getattr(lf.ui, "is_panel_enabled", None),
-                _UtilityToolbarController._ASSET_MANAGER_PANEL_ID,
-            )
-        )
         input_settings_enabled = bool(
             call(
                 False,
@@ -1210,7 +1193,6 @@ class _ViewportToolbarController:
             self._viewport_export_controls.visible,
             bool(call(False, getattr(lf.ui, "is_sequencer_visible", None))),
             bool(histogram_mode_available(ui_context)) if ui_context is not None else False,
-            asset_manager_enabled,
             input_settings_enabled,
             plugin_marketplace_enabled,
             bool(call(False, getattr(lf.ui, "is_panel_enabled", None), "lfs.histogram")),
