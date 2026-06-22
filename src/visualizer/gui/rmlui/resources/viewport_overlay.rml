@@ -6,7 +6,7 @@
     <div id="split-divider-overlay" class="viewport-split-divider hidden"></div>
 
     <div id="primary-toolbar-root" class="panel-toolbar-root">
-        <div class="shelf-background"></div>
+        <div id="primary-shelf-background" class="shelf-background"></div>
         <div id="primary-utility-toolbar" class="toolbar-container toolbar-vertical">
             <div class="icon-btn"
                  data-for="button : selection_group_buttons"
@@ -178,7 +178,7 @@
     </div>
 
     <div id="secondary-toolbar-root" class="panel-toolbar-root hidden">
-        <div class="shelf-background"></div>
+        <div id="secondary-shelf-background" class="shelf-background"></div>
         <div id="secondary-utility-toolbar" class="toolbar-container toolbar-vertical">
             <div class="icon-btn"
                  data-for="button : selection_group_buttons"

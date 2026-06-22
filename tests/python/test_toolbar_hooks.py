@@ -237,7 +237,6 @@ def test_toolbar_binds_overlay_model_fields(toolbar_module):
     module.reset_overlay_state()
     module.bind_overlay_model(model)
 
-    assert "show_render_controls" in model.bound_funcs
     assert "camera_flyout_open" not in model.bound_funcs
     assert "render_flyout_open" not in model.bound_funcs
     assert "selection_flyout_open" not in model.bound_funcs
@@ -252,9 +251,7 @@ def test_toolbar_binds_overlay_model_fields(toolbar_module):
     assert "crop_transform_buttons" in model.bound_record_lists
     assert "crop_action_buttons" in model.bound_record_lists
     assert "utility_primary_buttons" in model.bound_record_lists
-    assert "render_group_buttons" in model.bound_record_lists
     assert "camera_mode_buttons" in model.bound_record_lists
-    assert "render_mode_buttons" in model.bound_record_lists
     assert "show_transform_space_controls" in model.bound_funcs
     assert "show_transform_pivot_controls" in model.bound_funcs
     assert "show_crop_toolbar" in model.bound_funcs
@@ -733,9 +730,8 @@ def test_viewport_overlay_template_moves_tools_left_and_transform_numbers_center
     assert 'class="toolbar-flyout-divider hidden"' not in rml
     assert "toolbar-flyout" not in rml
     assert rml.count('data-for="button : selection_group_buttons"') == 2
-    assert rml.count('class="toolbar-separator"') == 10
-    assert rml.count('class="toolbar-separator" data-if="show_render_controls"') == 2
-    assert rml.count('data-attr-data-shortcut="button.shortcut_text"') == 26
+    assert rml.count('class="toolbar-separator"') == 8
+    assert rml.count('data-attr-data-shortcut="button.shortcut_text"') == 24
     assert "data-attr-data-tooltip" not in rml
     assert 'data-attr-title="button.tooltip_text"' in rml
     assert rml.count('data-for="button : selection_mode_buttons"') == 1
@@ -856,7 +852,7 @@ def test_viewport_overlay_template_moves_tools_left_and_transform_numbers_center
     assert "dropdown-arrow.png" not in rml
     assert "flyout_open" not in rml
     assert 'data-for="button : camera_mode_buttons"' in rml
-    assert 'data-for="button : render_mode_buttons"' in rml
+    assert 'data-for="button : render_mode_buttons"' not in rml
     assert 'data-class-selected="button.selected"' in rml
     assert "toolbar-flyout" not in rcss
     assert "toolbar-group-container" not in rcss
@@ -877,8 +873,8 @@ def test_viewport_overlay_template_moves_tools_left_and_transform_numbers_center
     assert "width: 30dp;\n    height: 30dp;\n    min-width: 30dp;\n    min-height: 30dp;" in rcss
     assert ".toolbar-hcenter .toolbar-container {\n    align-items: center;\n    padding: 5dp 6dp;" in rcss
     assert ".toolbar-hcenter .icon-btn {\n    display: flex;" in rcss
-    assert "width: 22dp;\n    height: 22dp;\n    min-width: 22dp;\n    min-height: 22dp;" in rcss
-    assert ".toolbar-hcenter .icon-btn img {\n    width: 17dp;\n    height: 17dp;" in rcss
+    assert "width: 30dp;\n    height: 30dp;\n    min-width: 30dp;\n    min-height: 30dp;" in rcss
+    assert ".toolbar-hcenter .icon-btn img {\n    width: 20dp;\n    height: 20dp;" in rcss
     assert "margin: 8dp 0 7dp;" in rcss
     assert ".viewport-transform-overlay {\n    position: absolute;\n    top: 5dp;" in rcss
     assert ".viewport-selection-overlay {\n    position: absolute;\n    top: 5dp;" in rcss
@@ -965,13 +961,10 @@ def test_viewport_toolbar_update_syncs_utility_records(toolbar_module, monkeypat
     camera_buttons = model.handle.record_updates["camera_mode_buttons"]
     primary_buttons = model.handle.record_updates["utility_primary_buttons"]
     extra_buttons = model.handle.record_updates["utility_extra_buttons"]
-    render_group = model.handle.record_updates["render_group_buttons"][0]
     assert len(camera_buttons) == 3
     assert [button["action"] for button in primary_buttons] == [
         "home",
         "focus_selection",
-        "fullscreen",
-        "toggle_ui",
     ]
     assert primary_buttons[1]["icon_src"] == "../icon/focus-selection.png"
     assert primary_buttons[1]["tooltip_text"] == "Focus Selection"
@@ -1003,9 +996,6 @@ def test_viewport_toolbar_update_syncs_utility_records(toolbar_module, monkeypat
     assert extra_by_id["util-plugin-marketplace"]["icon_src"] == "../icon/puzzle.png"
     assert extra_by_id["util-plugin-marketplace"]["tooltip_text"] == "Plugins"
     assert extra_by_id["util-plugin-marketplace"]["selected"] is True
-    assert render_group["action"] == "render_group"
-    assert render_group["icon_src"] == "../icon/blob.png"
-    assert render_group["selected"] is False
 
     model.handle.record_updates.clear()
     model.bound_events["toolbar_action"](None, None, ["toggle_panel", "lfs.plugin_marketplace"])

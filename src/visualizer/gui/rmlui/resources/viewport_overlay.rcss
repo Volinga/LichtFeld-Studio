@@ -56,6 +56,11 @@ body {
     overflow-y: auto;
 }
 
+#secondary-shelf-background,
+#secondary-utility-toolbar {
+    left: -20dp;
+}
+
 .toolbar-vertical .icon-btn {
     position: relative;
     display: flex;

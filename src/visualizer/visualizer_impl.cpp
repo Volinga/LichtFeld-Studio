@@ -29,6 +29,7 @@
 #include "tools/builtin_tools.hpp"
 #include "tools/selection_tool.hpp"
 #include "visualizer/app_store.hpp"
+#include "window/vulkan_context.hpp"
 #include <SDL3/SDL_events.h>
 #include <algorithm>
 #include <cassert>
@@ -1232,6 +1233,10 @@ namespace lfs::vis {
         demand.posted_work = update_work_processed_;
         demand.render_work = hasPendingRenderWork();
         demand.store_dirty = drained_store_dirty || app_store().store().has_dirty();
+        if (auto* vulkan_context = window_manager_ ? window_manager_->getVulkanContext() : nullptr) {
+            demand.swapchain_resize_ready = vulkan_context->hasPendingSwapchainResize() &&
+                                            vulkan_context->pendingSwapchainResizeReady();
+        }
         return demand;
     }
 

@@ -393,8 +393,9 @@ namespace lfs::vis {
         SDL_GetWindowSizeInPixels(window_, &fbW, &fbH);
         const glm::ivec2 next_window_size(winW, winH);
         const glm::ivec2 next_framebuffer_size(fbW, fbH);
-        const bool size_changed = next_window_size != window_size_ ||
-                                  next_framebuffer_size != framebuffer_size_;
+        const bool window_size_changed = next_window_size != window_size_;
+        const bool framebuffer_size_changed = next_framebuffer_size != framebuffer_size_;
+        const bool size_changed = window_size_changed || framebuffer_size_changed;
 
         const auto flags = SDL_GetWindowFlags(window_);
         if (size_changed) {
@@ -423,7 +424,7 @@ namespace lfs::vis {
 
         window_size_ = next_window_size;
         framebuffer_size_ = next_framebuffer_size;
-        if (vulkan_context_) {
+        if (vulkan_context_ && framebuffer_size_changed) {
             vulkan_context_->notifyFramebufferResized(fbW, fbH);
         }
         if (size_changed) {
@@ -459,6 +460,10 @@ namespace lfs::vis {
         const bool imgui_ready = ImGui::GetCurrentContext() != nullptr;
         const SDL_WindowID main_window_id = window_ ? SDL_GetWindowID(window_) : 0;
         SDL_Event event;
+        if (vulkan_context_ && vulkan_context_->hasPendingSwapchainResize()) {
+            timeout_seconds = std::min(timeout_seconds,
+                                       std::max(0.0, vulkan_context_->secondsUntilPendingSwapchainResizeReady()));
+        }
         const int timeout_ms = static_cast<int>(timeout_seconds * 1000.0);
         if (SDL_WaitEventTimeout(&event, timeout_ms)) {
             if (imgui_ready)

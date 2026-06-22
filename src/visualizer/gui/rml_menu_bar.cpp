@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 #include "gui/rml_menu_bar.hpp"
+#include "core/events.hpp"
 #include "core/logger.hpp"
 #include "core/services.hpp"
 #include "gui/rmlui/rml_document_utils.hpp"
@@ -267,6 +268,9 @@ namespace lfs::vis::gui {
         brand_logo_ = document_->GetElementById("brand-logo");
         menu_toolbar_ = document_->GetElementById("menu-toolbar");
         menu_window_controls_ = document_->GetElementById("menu-window-controls");
+        menu_window_split_view_ = document_->GetElementById("menu-window-split-view");
+        menu_window_toggle_ui_ = document_->GetElementById("menu-window-toggle-ui");
+        menu_window_maximize_ = document_->GetElementById("menu-window-maximize");
         body_el_ = document_->GetElementById("body");
 
         render_needed_ = true;
@@ -293,7 +297,13 @@ namespace lfs::vis::gui {
         brand_logo_ = nullptr;
         menu_toolbar_ = nullptr;
         menu_window_controls_ = nullptr;
+        menu_window_split_view_ = nullptr;
+        menu_window_toggle_ui_ = nullptr;
+        menu_window_maximize_ = nullptr;
         body_el_ = nullptr;
+        last_window_split_view_ = false;
+        last_ui_hidden_ = false;
+        last_window_maximized_ = false;
         clearTitlebarDragRegion();
     }
 
@@ -331,6 +341,9 @@ namespace lfs::vis::gui {
         brand_logo_ = nullptr;
         menu_toolbar_ = nullptr;
         menu_window_controls_ = nullptr;
+        menu_window_split_view_ = nullptr;
+        menu_window_toggle_ui_ = nullptr;
+        menu_window_maximize_ = nullptr;
         body_el_ = nullptr;
         tooltip_.setHover({}, nullptr);
         clearTitlebarDragRegion();
@@ -366,8 +379,14 @@ namespace lfs::vis::gui {
         brand_logo_ = document_->GetElementById("brand-logo");
         menu_toolbar_ = document_->GetElementById("menu-toolbar");
         menu_window_controls_ = document_->GetElementById("menu-window-controls");
+        menu_window_split_view_ = document_->GetElementById("menu-window-split-view");
+        menu_window_toggle_ui_ = document_->GetElementById("menu-window-toggle-ui");
+        menu_window_maximize_ = document_->GetElementById("menu-window-maximize");
         body_el_ = document_->GetElementById("body");
         applied_toolbar_right_ = -1.0f;
+        last_window_split_view_ = false;
+        last_ui_hidden_ = false;
+        last_window_maximized_ = false;
 
         rebuildLabels();
         menu_model_.DirtyVariable("dropdown_items");
@@ -728,10 +747,6 @@ namespace lfs::vis::gui {
                 view_snap = ic->cameraViewSnapEnabled();
             projection_buttons.push_back(make("menu-view-snap", "toggle_camera_view_snap", "", "check",
                                               "", "Snap Axis Views", view_snap));
-            projection_buttons.push_back(make(
-                "menu-split-view", "toggle_independent_split_view", "", "layout-columns", "",
-                "Independent Split View",
-                settings.split_view_mode == lfs::vis::SplitViewMode::IndependentDual));
         }
 
         if (render_buttons != render_buttons_) {
@@ -787,6 +802,8 @@ namespace lfs::vis::gui {
         } else if (action == "toggle_independent_split_view") {
             if (auto* ic = lfs::vis::InputController::instance())
                 ic->toggleIndependentSplitView();
+        } else if (action == "window_toggle_ui") {
+            lfs::core::events::ui::ToggleUI{}.emit();
         } else if (action == "window_minimize") {
             if (auto* wm = lfs::vis::services().windowOrNull())
                 wm->minimize();
@@ -800,6 +817,13 @@ namespace lfs::vis::gui {
             }
         }
 
+        render_needed_ = true;
+    }
+
+    void RmlMenuBar::setUiHidden(const bool hidden) {
+        if (ui_hidden_ == hidden)
+            return;
+        ui_hidden_ = hidden;
         render_needed_ = true;
     }
 
@@ -922,6 +946,42 @@ namespace lfs::vis::gui {
         const bool theme_changed = updateTheme();
         rebuildToolbarButtons();
 
+        if (menu_window_split_view_) {
+            const bool split_view = [&] {
+                if (auto* rm = lfs::vis::services().renderingOrNull())
+                    return rm->getSettings().split_view_mode == lfs::vis::SplitViewMode::IndependentDual;
+                return false;
+            }();
+            if (split_view != last_window_split_view_) {
+                menu_window_split_view_->SetClass("selected", split_view);
+                menu_window_split_view_->SetAttribute(
+                    "title", split_view ? "Exit Independent Split View" : "Independent Split View");
+                last_window_split_view_ = split_view;
+                render_needed_ = true;
+            }
+        }
+
+        if (menu_window_toggle_ui_ && ui_hidden_ != last_ui_hidden_) {
+            menu_window_toggle_ui_->SetClass("selected", ui_hidden_);
+            menu_window_toggle_ui_->SetAttribute("title", ui_hidden_ ? "Show UI" : "Hide UI");
+            last_ui_hidden_ = ui_hidden_;
+            render_needed_ = true;
+        }
+
+        if (menu_window_maximize_) {
+            const bool maximized = [&] {
+                if (auto* wm = lfs::vis::services().windowOrNull())
+                    return wm->isMaximized();
+                return false;
+            }();
+            if (maximized != last_window_maximized_) {
+                menu_window_maximize_->SetClass("maximized", maximized);
+                menu_window_maximize_->SetAttribute("title", maximized ? "Restore Window" : "Maximize Window");
+                last_window_maximized_ = maximized;
+                render_needed_ = true;
+            }
+        }
+
         const float dp_ratio = rml_manager_->getDpRatio();
         const int bar_h = static_cast<int>(bar_height_ * dp_ratio);
 
@@ -929,8 +989,13 @@ namespace lfs::vis::gui {
         // keep it clear of the window-control cluster when there is no dock panel.
         if (menu_toolbar_) {
             const float inset = 8.0f * dp_ratio;
-            constexpr float kRightClusterReserveDp = 116.0f;
-            float right_px = kRightClusterReserveDp * dp_ratio;
+            constexpr float kFallbackRightClusterReserveDp = 184.0f;
+            float right_px = kFallbackRightClusterReserveDp * dp_ratio;
+            if (menu_window_controls_) {
+                const auto offset = menu_window_controls_->GetAbsoluteOffset(Rml::BoxArea::Border);
+                if (offset.x > 0.0f)
+                    right_px = static_cast<float>(screen_w) - offset.x + 4.0f * dp_ratio;
+            }
             if (viewport_right_edge_ > 0.0f)
                 right_px = std::max(right_px, static_cast<float>(screen_w) - viewport_right_edge_ + inset);
             if (std::abs(right_px - applied_toolbar_right_) > 0.5f) {

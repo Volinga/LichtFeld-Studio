@@ -38,23 +38,47 @@
         </div>
         <div id="menu-right">
             <div id="menu-window-controls">
+                <div id="menu-window-split-view"
+                     class="icon-btn menu-window-btn menu-window-utility-btn"
+                     data-action="toggle_independent_split_view"
+                     title="Independent Split View">
+                    <img src="../icon/layout-columns.png" />
+                </div>
+                <div id="menu-window-toggle-ui"
+                     class="icon-btn menu-window-btn menu-window-utility-btn"
+                     data-action="window_toggle_ui"
+                     title="Hide UI">
+                    <img src="../icon/layout-off.png" />
+                </div>
+                <div class="menu-window-separator"></div>
                 <div id="menu-window-minimize"
                      class="icon-btn menu-window-btn"
                      data-action="window_minimize"
                      title="Minimize">
-                    <img src="../icon/arrows-minimize.png" />
+                    <div class="window-icon window-icon-minimize">
+                        <div class="window-minimize-line"></div>
+                    </div>
                 </div>
                 <div id="menu-window-maximize"
                      class="icon-btn menu-window-btn"
                      data-action="window_toggle_maximize"
-                     title="Maximize / Restore">
-                    <img src="../icon/arrows-maximize.png" />
+                     title="Maximize Window">
+                    <div class="window-icon window-icon-maximize">
+                        <div class="window-maximize-box"></div>
+                    </div>
+                    <div class="window-icon window-icon-restore">
+                        <div class="window-restore-box window-restore-back"></div>
+                        <div class="window-restore-box window-restore-front"></div>
+                    </div>
                 </div>
                 <div id="menu-window-close"
                      class="icon-btn menu-window-btn menu-window-close"
                      data-action="window_close"
                      title="Close">
-                    <img src="../icon/scene/x.png" />
+                    <div class="window-icon window-icon-close">
+                        <div class="window-close-line window-close-line-a"></div>
+                        <div class="window-close-line window-close-line-b"></div>
+                    </div>
                 </div>
             </div>
         </div>

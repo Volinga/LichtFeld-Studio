@@ -56,6 +56,10 @@ def test_menubar_submenus_are_stacked_above_overlay_and_hit_testable():
     assert ".submenu-container.open > .submenu-popup" in rcss
     assert "pointer-events: auto;" in rcss
     assert ".menu-item.active" in theme_rcss
+    assert 'id="menu-window-fullscreen"' not in rml
+    assert 'data-action="window_toggle_fullscreen"' not in rml
+    assert 'id="menu-window-toggle-ui"' in rml
+    assert 'data-action="window_toggle_ui"' in rml
 
 
 def test_rml_tooltips_request_only_pending_animation_frames():
@@ -119,6 +123,7 @@ def test_menu_bar_uses_retained_bounds_for_submenu_hover():
     assert "GetAbsoluteOffset(Rml::BoxArea::Border)" in menu_bar_cpp
     assert "setOpenSubmenu(submenuIndexForElement(hit_element))" in menu_bar_cpp
     assert "rml_context_->GetElementAtPoint" not in menu_bar_cpp
+    assert 'action == "window_toggle_fullscreen"' not in menu_bar_cpp
 
 
 def test_open_menu_requests_passive_mouse_render_and_blocks_viewport_hit_testing():
@@ -131,4 +136,9 @@ def test_open_menu_requests_passive_mouse_render_and_blocks_viewport_hit_testing
     ).read_text(encoding="utf-8")
 
     assert "if (rml_menu_bar_.isOpen())\n            return true;" in gui_manager_cpp
-    assert "if (!ui_hidden_ && rml_menu_bar_.isOpen())" in gui_manager_cpp
+    assert (
+        "if (rml_menu_bar_.isOpen()) {\n"
+        "            return {.blocks_pointer = true, .takes_keyboard_focus = true};\n"
+        "        }"
+    ) in gui_manager_cpp
+    assert "if (!ui_hidden_ && rml_menu_bar_.isOpen())" not in gui_manager_cpp

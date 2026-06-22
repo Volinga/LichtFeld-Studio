@@ -106,6 +106,7 @@ namespace lfs::vis::gui {
         void reloadResources();
         void processInput(const PanelInputState& input);
         void setViewportRightEdge(float x) { viewport_right_edge_ = x; }
+        void setUiHidden(bool hidden);
         void suspend();
         bool wantsInput() const { return wants_input_; }
         bool isOpen() const { return open_menu_index_ >= 0; }
@@ -151,10 +152,17 @@ namespace lfs::vis::gui {
         Rml::Element* brand_logo_ = nullptr;
         Rml::Element* menu_toolbar_ = nullptr;
         Rml::Element* menu_window_controls_ = nullptr;
+        Rml::Element* menu_window_split_view_ = nullptr;
+        Rml::Element* menu_window_toggle_ui_ = nullptr;
+        Rml::Element* menu_window_maximize_ = nullptr;
         Rml::Element* body_el_ = nullptr;
         RmlTooltipController tooltip_;
         float viewport_right_edge_ = 0.0f;
         float applied_toolbar_right_ = -1.0f;
+        bool ui_hidden_ = false;
+        bool last_window_split_view_ = false;
+        bool last_ui_hidden_ = false;
+        bool last_window_maximized_ = false;
 
         int open_menu_index_ = -1;
         int open_submenu_index_ = -1;

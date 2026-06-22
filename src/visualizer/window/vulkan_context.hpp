@@ -8,6 +8,7 @@
 #include "vulkan_image_barrier_tracker.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -41,6 +42,9 @@ namespace lfs::vis {
         bool init(SDL_Window* window, int framebuffer_width, int framebuffer_height);
         void shutdown();
         void notifyFramebufferResized(int width, int height);
+        [[nodiscard]] bool hasPendingSwapchainResize() const { return framebuffer_resize_deferred_; }
+        [[nodiscard]] bool pendingSwapchainResizeReady() const;
+        [[nodiscard]] double secondsUntilPendingSwapchainResizeReady() const;
 
         [[nodiscard]] bool presentBootstrapFrame(float r, float g, float b, float a);
         [[nodiscard]] const std::string& lastError() const { return last_error_; }
@@ -247,6 +251,8 @@ namespace lfs::vis {
         bool createPipelineCache();
         bool recreateSwapchain();
         bool finishActiveRendering(VkCommandBuffer command_buffer);
+        void deferSwapchainResizeRecreate();
+        [[nodiscard]] bool promoteDeferredSwapchainResizeIfSettled();
 
         void destroyDebugMessenger();
         void destroyAllocator();
@@ -344,6 +350,8 @@ namespace lfs::vis {
         std::vector<VkFence> swapchain_images_in_flight_;
 
         bool framebuffer_resized_ = false;
+        bool framebuffer_resize_deferred_ = false;
+        std::chrono::steady_clock::time_point framebuffer_resize_last_change_{};
         bool frame_active_ = false;
         bool frame_rendering_active_ = false;
         bool frame_suboptimal_ = false;

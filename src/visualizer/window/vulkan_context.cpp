@@ -43,6 +43,7 @@ namespace lfs::vis {
             VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
 #endif
         constexpr std::uint64_t kExternalTimelineWaitTimeoutNs = 2'000'000'000ull;
+        constexpr auto kSwapchainResizeSettleDelay = std::chrono::milliseconds(80);
 
         [[nodiscard]] double elapsedMs(const std::chrono::steady_clock::time_point start) {
             return std::chrono::duration<double, std::milli>(
@@ -472,13 +473,58 @@ namespace lfs::vis {
         }
     }
 
+    void VulkanContext::deferSwapchainResizeRecreate() {
+        framebuffer_resize_deferred_ = true;
+        framebuffer_resize_last_change_ = std::chrono::steady_clock::now();
+        framebuffer_resized_ = false;
+        last_error_.clear();
+    }
+
+    bool VulkanContext::pendingSwapchainResizeReady() const {
+        return !framebuffer_resize_deferred_ ||
+               std::chrono::steady_clock::now() - framebuffer_resize_last_change_ >= kSwapchainResizeSettleDelay;
+    }
+
+    double VulkanContext::secondsUntilPendingSwapchainResizeReady() const {
+        if (!framebuffer_resize_deferred_) {
+            return 0.0;
+        }
+
+        const auto elapsed = std::chrono::steady_clock::now() - framebuffer_resize_last_change_;
+        if (elapsed >= kSwapchainResizeSettleDelay) {
+            return 0.0;
+        }
+
+        return std::chrono::duration<double>(kSwapchainResizeSettleDelay - elapsed).count();
+    }
+
+    bool VulkanContext::promoteDeferredSwapchainResizeIfSettled() {
+        if (!framebuffer_resize_deferred_) {
+            return true;
+        }
+
+        if (!pendingSwapchainResizeReady()) {
+            last_error_.clear();
+            return false;
+        }
+
+        framebuffer_resize_deferred_ = false;
+        framebuffer_resized_ = true;
+        return true;
+    }
+
     void VulkanContext::notifyFramebufferResized(const int width, const int height) {
         if (width == framebuffer_width_ && height == framebuffer_height_) {
             return;
         }
         framebuffer_width_ = width;
         framebuffer_height_ = height;
-        framebuffer_resized_ = true;
+        if (width <= 0 || height <= 0) {
+            framebuffer_resize_deferred_ = false;
+            framebuffer_resized_ = true;
+            return;
+        }
+        deferSwapchainResizeRecreate();
     }
 
     bool VulkanContext::presentBootstrapFrame(const float r, const float g, const float b, const float a) {
@@ -500,6 +546,10 @@ namespace lfs::vis {
         frame = {};
         if (device_ == VK_NULL_HANDLE || framebuffer_width_ <= 0 || framebuffer_height_ <= 0) {
             last_error_.clear();
+            return false;
+        }
+
+        if (!promoteDeferredSwapchainResizeIfSettled()) {
             return false;
         }
 
@@ -572,9 +622,7 @@ namespace lfs::vis {
                       framebuffer_height_,
                       swapchain_extent_.width,
                       swapchain_extent_.height);
-            if (recreateSwapchain()) {
-                last_error_.clear();
-            }
+            deferSwapchainResizeRecreate();
             return false;
         }
         if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -819,10 +867,8 @@ namespace lfs::vis {
                       swapchain_extent_.width,
                       swapchain_extent_.height);
             frame_suboptimal_ = false;
-            // A silent false (empty error) means the surface reported 0×0 extent (window minimized);
-            // treat as success so the caller doesn't log a spurious warning. framebuffer_resized_
-            // stays true, so recreation is retried each frame until the window is restored.
-            return recreateSwapchain() || last_error_.empty();
+            deferSwapchainResizeRecreate();
+            return true;
         }
         frame_suboptimal_ = false;
         if (result != VK_SUCCESS) {

@@ -188,18 +188,20 @@ namespace lfs::vis {
             bool posted_work = false;
             bool render_work = false;
             bool store_dirty = false;
+            bool swapchain_resize_ready = false;
 
             [[nodiscard]] bool shouldRenderFrame() const {
                 return viewport_export_locked || scene_dirty || continuous_input ||
                        python_animation || python_overlay || python_redraw ||
                        gui_animation || input_event || posted_work || render_work ||
-                       store_dirty;
+                       store_dirty || swapchain_resize_ready;
             }
 
             [[nodiscard]] bool needsContinuousLoop() const {
                 return scene_dirty || continuous_input || python_animation ||
                        python_overlay || python_redraw || gui_animation ||
-                       render_work || viewport_export_locked || store_dirty;
+                       render_work || viewport_export_locked || store_dirty ||
+                       swapchain_resize_ready;
             }
         };
 

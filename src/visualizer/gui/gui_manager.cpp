@@ -3718,7 +3718,7 @@ namespace lfs::vis::gui {
         if (rmlui_manager_.wantsTextInput() || rmlui_manager_.anyItemActive())
             return true;
 
-        if (!ui_hidden_ && rml_menu_bar_.isOpen())
+        if (rml_menu_bar_.isOpen())
             return true;
         if (global_context_menu_ && global_context_menu_->isOpen())
             return true;
@@ -5398,7 +5398,7 @@ namespace lfs::vis::gui {
             next_theme_check = now + std::chrono::seconds(1);
         }
 
-        if (menu_bar_ && !ui_hidden_) {
+        if (menu_bar_) {
             LOG_TIMER_THRESHOLD("gui_render.panel_setup.menu_bar", 0.25);
             menu_bar_->render();
 
@@ -5445,6 +5445,7 @@ namespace lfs::vis::gui {
             if (block_underlay_input)
                 menu_input = maskInputForBlockedUi(std::move(menu_input));
 
+            rml_menu_bar_.setUiHidden(ui_hidden_);
             rml_menu_bar_.processInput(menu_input);
 
             if (rml_menu_bar_.wantsInput())
@@ -6029,7 +6030,7 @@ namespace lfs::vis::gui {
         rml_viewport_overlay_.setViewportContentOffset(viewport_layout_.pos.x - screen.work_pos.x);
         RmlViewportOverlay::SplitDividerOverlayState split_divider_state;
         if (auto* const rendering = viewer_ ? viewer_->getRenderingManager() : nullptr;
-            rendering && rendering->isSplitViewActive()) {
+            rendering && rendering->isSplitViewActive() && !rendering->isIndependentSplitViewActive()) {
             const auto divider_x = rendering->getSplitDividerScreenX(viewport_layout_.pos, viewport_layout_.size);
             const auto content_bounds = rendering->getContentBounds(glm::ivec2(
                 std::max(static_cast<int>(viewport_layout_.size.x), 0),
@@ -6241,8 +6242,9 @@ namespace lfs::vis::gui {
 
         if (vulkan_gui_) {
             LOG_TIMER_THRESHOLD("gui_render.menu_context_modal_render", 0.25);
-            if (menu_bar_ && !ui_hidden_) {
+            if (menu_bar_) {
                 LOG_TIMER_THRESHOLD("gui_render.menu_context_modal_render.menu_bar", 0.25);
+                rml_menu_bar_.setUiHidden(ui_hidden_);
                 rml_menu_bar_.setViewportRightEdge(
                     viewport_layout_.pos.x + viewport_layout_.size.x - panel_input.screen_x);
                 rml_menu_bar_.draw(panel_input.screen_w, panel_input.screen_h);
@@ -6853,7 +6855,7 @@ namespace lfs::vis::gui {
             return {.blocks_pointer = true, .takes_keyboard_focus = true};
         }
 
-        if (!ui_hidden_ && rml_menu_bar_.isOpen()) {
+        if (rml_menu_bar_.isOpen()) {
             return {.blocks_pointer = true, .takes_keyboard_focus = true};
         }
 
@@ -7085,10 +7087,10 @@ namespace lfs::vis::gui {
     }
 
     bool GuiManager::passiveMouseMoveNeedsRender(const float mouse_x, const float mouse_y) const {
-        if (ui_hidden_)
-            return false;
         if (rml_menu_bar_.isOpen())
             return true;
+        if (ui_hidden_)
+            return false;
 
         const bool imgui_popup_open =
             ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
