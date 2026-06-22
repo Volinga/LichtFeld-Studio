@@ -2391,7 +2391,7 @@ namespace lfs::vis {
         return out_min.x <= out_max.x;
     }
 
-    // Cached whole-scene radius used to scale WASD speed and pan distance with
+    // Cached whole-scene radius used to scale WASD speed and cap pan distance by
     // splat size. Uses the trimmed (1st/99th percentile) bounds so a few far-flung
     // floaters can't blow up the extent and make navigation far too fast. Lazily
     // computed after load (bounds may not exist the instant SceneLoaded fires) and
