@@ -640,6 +640,12 @@ namespace lfs::vis {
         }
         initialized_ = true;
 
+        // Tensor ops in the frame (render-state consolidation, interop copies)
+        // follow the viewport's render stream once it exists.
+        std::optional<lfs::core::CUDAStreamGuard> frame_stream_guard;
+        if (vksplat_viewport_renderer_ && vksplat_viewport_renderer_->renderStream()) {
+            frame_stream_guard.emplace(vksplat_viewport_renderer_->renderStream());
+        }
         const auto cached_frame_result = [this]() -> VulkanFrameResult {
             if (vulkan_external_viewport_image_ != VK_NULL_HANDLE) {
                 return {.image = {},
@@ -796,6 +802,17 @@ namespace lfs::vis {
             vulkan_viewport_image_size_ = {0, 0};
             vulkan_viewport_image_flip_y_ = false;
             if (vksplat_viewport_renderer_) {
+                // The trainer must drop the fence handle before reset destroys
+                // the CUDA import it points at.
+                if (trainer_manager) {
+                    if (auto* trainer = trainer_manager->getTrainer()) {
+                        trainer->setViewerReleaseFence(nullptr);
+                    }
+                }
+                // reset() destroys render_stream_; drop it from the TLS current
+                // stream first so the rest of the frame doesn't enqueue work on a
+                // stale handle. Re-installed after the handshake re-init below.
+                frame_stream_guard.reset();
                 vksplat_viewport_renderer_->reset();
             }
             viewport_artifact_service_.clearViewportOutput();
@@ -809,6 +826,84 @@ namespace lfs::vis {
             training_dirty) {
             markDirty(training_dirty);
         }
+
+        // Trainer↔viewer GPU handshake, forward edge: order this frame's model
+        // reads (render-stream packing and Vulkan zero-copy) after the
+        // trainer's last consistent parameter state. The reverse edge — the
+        // trainer waiting on this frame's completion before its next in-place
+        // writes — is published after the frame's submits.
+        //
+        // Initialize the renderer (its render stream + completion fence) before
+        // installing the handshake so the first live frame after a start, scene
+        // switch, or reset() is covered too — otherwise that frame submits with
+        // no borrow fence and the trainer can write while Vulkan still reads.
+        if (is_training && context.vulkan_context &&
+            lfs::rendering::isVkSplatBackend(settings_.raster_backend)) {
+            if (!vksplat_viewport_renderer_) {
+                vksplat_viewport_renderer_ = std::make_unique<VksplatViewportRenderer>();
+            }
+            if (const auto ok = vksplat_viewport_renderer_->ensureHandshakeReady(*context.vulkan_context); !ok) {
+                LOG_WARN("VkSplat handshake pre-init skipped: {}", ok.error());
+            }
+        }
+        // ensureHandshakeReady() may have reset()/recreated render_stream_ — on a
+        // model change above, or on a VulkanContext switch inside ensureInitialized
+        // — invalidating any handle installed earlier this frame. Re-sync the guard
+        // unconditionally to the renderer's current stream (not only when empty).
+        frame_stream_guard.reset();
+        if (vksplat_viewport_renderer_ && vksplat_viewport_renderer_->renderStream()) {
+            frame_stream_guard.emplace(vksplat_viewport_renderer_->renderStream());
+        }
+        lfs::training::Trainer* live_trainer = nullptr;
+        if (is_training && trainer_manager && vksplat_viewport_renderer_ &&
+            vksplat_viewport_renderer_->renderStream() &&
+            vksplat_viewport_renderer_->renderCompleteFence()) {
+            // Gate on a live release fence too: a failed/partial ensureHandshakeReady
+            // leaves render_stream_ created but render_complete_cuda_ uninitialized,
+            // and installing that null fence would silently drop the trainer's borrow
+            // wait (racing any in-flight Vulkan read). render() also fails without it,
+            // so skipping the handshake this frame is correct.
+            live_trainer = trainer_manager->getTrainer();
+        }
+        // Held shared for the whole frame so the trainer's non-refining optimizer
+        // step (which takes it exclusive) cannot mutate the live model while this
+        // frame is reading it. Released at function exit (after the readback).
+        std::optional<std::shared_lock<std::shared_mutex>> model_read_lock;
+        if (live_trainer && lfs::training::Trainer::modelAccessLockEnabled()) {
+            model_read_lock.emplace(live_trainer->getModelAccessMutex());
+        }
+        if (live_trainer) {
+            live_trainer->setViewerReleaseFence(vksplat_viewport_renderer_->renderCompleteFence());
+            live_trainer->beginModelRead(vksplat_viewport_renderer_->renderStream());
+            // Prompt publish: the renderer invokes this right after each
+            // submit, before its shared arena frame releases — the trainer's
+            // borrow wait must cover the in-flight batch before the trainer
+            // can reacquire the arena.
+            lfs::training::Trainer* const trainer = live_trainer;
+            vksplat_viewport_renderer_->setLiveSubmitCallback(
+                [trainer](const std::uint64_t value) { trainer->publishViewerBorrow(value); });
+        } else if (vksplat_viewport_renderer_) {
+            vksplat_viewport_renderer_->setLiveSubmitCallback({});
+        }
+        // Belt-and-suspenders: also publish the frame's final completion value
+        // at scope exit (all return paths), while the shared render lock is
+        // still held. publishViewerBorrow is monotonic, so this can't regress
+        // the prompt publishes.
+        struct ViewerBorrowPublisher {
+            lfs::training::Trainer* trainer;
+            VksplatViewportRenderer* renderer;
+            ~ViewerBorrowPublisher() {
+                if (trainer && renderer) {
+                    // Reverse edge that also covers early exits: even when no new
+                    // batch advanced the completion value (validation/setup error
+                    // after prepareInputs enqueued render-stream model copies),
+                    // record a reader-done edge on the render stream so the next
+                    // training step waits for those reads before writing.
+                    trainer->endModelRead(renderer->renderStream());
+                    trainer->publishViewerBorrow(renderer->renderCompleteValue());
+                }
+            }
+        } viewer_borrow_publisher{live_trainer, vksplat_viewport_renderer_.get()};
 
         const bool has_cached_gpu_only_frame = [&]() {
             if (vulkan_viewport_image_size_.x <= 0 || vulkan_viewport_image_size_.y <= 0) {
@@ -1258,6 +1353,13 @@ namespace lfs::vis {
                                     lfs::rendering::imageHeight(gt_tensor, gt_layout));
                                 gt_tensor = lfs::core::undistort_image(gt_tensor, scaled, nullptr);
                             }
+                            // The GT photo is a static display image, but on the device its buffer
+                            // belongs to the shared training memory pool, which recycles it and
+                            // overwrites the pixels mid-display (the panel blacks out during
+                            // training). Copy to host now, while the data is valid, so the panel is
+                            // decoupled from device-side churn; the split-view pack reads it back on
+                            // the CPU anyway.
+                            gt_tensor = gt_tensor.cpu();
                             gt_tensor = lfs::rendering::flipImageVertical(gt_tensor, gt_layout);
                             const glm::ivec2 gt_size{
                                 lfs::rendering::imageWidth(gt_tensor, gt_layout),

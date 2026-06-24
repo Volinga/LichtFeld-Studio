@@ -3,7 +3,10 @@
 
 #include "core/logger.hpp"
 #include "core/path_utils.hpp"
+#include "core/pinned_memory_allocator.hpp"
 #include "core/tensor_trace.hpp"
+#include "internal/cuda_event_pool.hpp"
+#include "internal/cuda_stream_context.hpp"
 #include "internal/lazy_executor.hpp"
 #include "internal/memory_pool.hpp"
 #include "internal/tensor_broadcast.hpp"
@@ -581,6 +584,36 @@ namespace lfs::core {
 
     std::string_view CudaMemoryPool::current_label() noexcept {
         return g_pool_pending_label;
+    }
+
+    void Tensor::set_stream(cudaStream_t stream) {
+        if (device_ == Device::CUDA && data_owner_) {
+            CudaMemoryPool::instance().rehome_stream(data_owner_.get(), stream);
+        }
+        state_->stream = stream;
+    }
+
+    void Tensor::record_stream(cudaStream_t stream) const {
+        if (!data_owner_) {
+            return;
+        }
+        if (device_ == Device::CUDA) {
+            CudaMemoryPool::instance().record_stream(data_owner_.get(), stream);
+        } else {
+            PinnedMemoryAllocator::instance().record_stream(data_owner_.get(), stream);
+        }
+    }
+
+    void Tensor::sync_to_stream(cudaStream_t execution_stream) const {
+        if (device_ != Device::CUDA) {
+            return;
+        }
+        const cudaStream_t home = stream();
+        if (execution_stream == home) {
+            return;
+        }
+        bridgeStreams(home, execution_stream);
+        record_stream(execution_stream);
     }
 
     void Tensor::relabel_allocation_for_profiler() {

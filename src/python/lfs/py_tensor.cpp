@@ -4,6 +4,8 @@
 
 #include "py_tensor.hpp"
 #include "core/logger.hpp"
+#include "core/tensor/internal/cuda_event_pool.hpp"
+#include "core/tensor/internal/cuda_stream_context.hpp"
 #include "python/python_runtime.hpp"
 
 #include <cstring>
@@ -1323,9 +1325,40 @@ namespace lfs::python {
         return nb::make_tuple(device_type, 0);
     }
 
+    namespace {
+        constexpr int64_t kDLPackNoSync = -1;
+        constexpr int64_t kDLPackLegacyDefault = 1;
+        constexpr int64_t kDLPackPerThreadDefault = 2;
+
+        cudaStream_t dlpack_stream_to_cuda(int64_t s) {
+            switch (s) {
+            case 0:
+            case kDLPackLegacyDefault:
+                return nullptr;
+            case kDLPackPerThreadDefault:
+                return cudaStreamPerThread;
+            default:
+                return reinterpret_cast<cudaStream_t>(static_cast<uintptr_t>(s));
+            }
+        }
+
+        int64_t cuda_stream_to_dlpack(cudaStream_t s) {
+            const uintptr_t v = reinterpret_cast<uintptr_t>(s);
+            return v == 0 ? kDLPackLegacyDefault : static_cast<int64_t>(v);
+        }
+    } // namespace
+
     nb::capsule PyTensor::dlpack(nb::object stream) const {
-        if (tensor_.device() == Device::CUDA && stream.is_none()) {
-            cudaDeviceSynchronize();
+        if (tensor_.device() == Device::CUDA) {
+            const cudaStream_t home = tensor_.stream();
+            if (stream.is_none()) {
+                cudaStreamSynchronize(home);
+            } else if (const int64_t s = nb::cast<int64_t>(stream); s != kDLPackNoSync) {
+                const cudaStream_t consumer = dlpack_stream_to_cuda(s);
+                if (consumer != home) {
+                    lfs::core::bridgeStreams(home, consumer);
+                }
+            }
         }
 
         auto* ctx = new DLPackContext(tensor_);
@@ -1353,9 +1386,17 @@ namespace lfs::python {
 
     PyTensor PyTensor::from_dlpack(nb::object obj) {
         nb::capsule capsule;
+        bool stream_handshake = false;
 
         if (nb::hasattr(obj, "__dlpack__")) {
-            capsule = nb::cast<nb::capsule>(obj.attr("__dlpack__")());
+            nb::object dlpack_fn = obj.attr("__dlpack__");
+            const int64_t consumer = cuda_stream_to_dlpack(lfs::core::getCurrentCUDAStream());
+            try {
+                capsule = nb::cast<nb::capsule>(dlpack_fn(nb::arg("stream") = consumer));
+                stream_handshake = true;
+            } catch (const std::exception&) {
+                capsule = nb::cast<nb::capsule>(dlpack_fn());
+            }
         } else if (nb::isinstance<nb::capsule>(obj)) {
             capsule = nb::cast<nb::capsule>(obj);
         } else {
@@ -1395,6 +1436,12 @@ namespace lfs::python {
         const DataType dtype = from_dl_dtype(dl.dtype);
 
         Tensor tensor(data, TensorShape(shape_vec), device, dtype);
+        if (stream_handshake && device == Device::CUDA) {
+            // The producer ordered the data onto our current stream via the
+            // __dlpack__(stream=) handshake; home the tensor there so a later
+            // cross-stream op bridges from the consumer stream, not legacy.
+            tensor.set_stream(lfs::core::getCurrentCUDAStream());
+        }
 
         // Store the DLManagedTensor with a custom deleter that calls the DLPack deleter
         auto result = PyTensor(std::move(tensor), false);
@@ -1665,25 +1712,32 @@ namespace lfs::python {
                     return self.iadd(other);
                 },
                 nb::rv_policy::reference, "In-place add tensor")
-            .def("__iadd__", [](PyTensor& self, float scalar) -> PyTensor& { return self.iadd_scalar(scalar); }, nb::rv_policy::reference, "In-place add scalar")
+            .def(
+                "__iadd__", [](PyTensor& self, float scalar) -> PyTensor& { return self.iadd_scalar(scalar); }, nb::rv_policy::reference, "In-place add scalar")
 
             .def("__sub__", &PyTensor::sub, "Subtract tensor")
             .def("__sub__", &PyTensor::sub_scalar, "Subtract scalar")
             .def("__rsub__", &PyTensor::rsub_scalar, "Reverse subtract scalar")
-            .def("__isub__", [](PyTensor& self, const PyTensor& other) -> PyTensor& { return self.isub(other); }, nb::rv_policy::reference, "In-place subtract tensor")
-            .def("__isub__", [](PyTensor& self, float scalar) -> PyTensor& { return self.isub_scalar(scalar); }, nb::rv_policy::reference, "In-place subtract scalar")
+            .def(
+                "__isub__", [](PyTensor& self, const PyTensor& other) -> PyTensor& { return self.isub(other); }, nb::rv_policy::reference, "In-place subtract tensor")
+            .def(
+                "__isub__", [](PyTensor& self, float scalar) -> PyTensor& { return self.isub_scalar(scalar); }, nb::rv_policy::reference, "In-place subtract scalar")
 
             .def("__mul__", &PyTensor::mul, "Multiply tensor")
             .def("__mul__", &PyTensor::mul_scalar, "Multiply scalar")
             .def("__rmul__", &PyTensor::mul_scalar, "Reverse multiply scalar")
-            .def("__imul__", [](PyTensor& self, const PyTensor& other) -> PyTensor& { return self.imul(other); }, nb::rv_policy::reference, "In-place multiply tensor")
-            .def("__imul__", [](PyTensor& self, float scalar) -> PyTensor& { return self.imul_scalar(scalar); }, nb::rv_policy::reference, "In-place multiply scalar")
+            .def(
+                "__imul__", [](PyTensor& self, const PyTensor& other) -> PyTensor& { return self.imul(other); }, nb::rv_policy::reference, "In-place multiply tensor")
+            .def(
+                "__imul__", [](PyTensor& self, float scalar) -> PyTensor& { return self.imul_scalar(scalar); }, nb::rv_policy::reference, "In-place multiply scalar")
 
             .def("__truediv__", &PyTensor::div, "Divide tensor")
             .def("__truediv__", &PyTensor::div_scalar, "Divide scalar")
             .def("__rtruediv__", &PyTensor::rdiv_scalar, "Reverse divide scalar")
-            .def("__itruediv__", [](PyTensor& self, const PyTensor& other) -> PyTensor& { return self.idiv(other); }, nb::rv_policy::reference, "In-place divide tensor")
-            .def("__itruediv__", [](PyTensor& self, float scalar) -> PyTensor& { return self.idiv_scalar(scalar); }, nb::rv_policy::reference, "In-place divide scalar")
+            .def(
+                "__itruediv__", [](PyTensor& self, const PyTensor& other) -> PyTensor& { return self.idiv(other); }, nb::rv_policy::reference, "In-place divide tensor")
+            .def(
+                "__itruediv__", [](PyTensor& self, float scalar) -> PyTensor& { return self.idiv_scalar(scalar); }, nb::rv_policy::reference, "In-place divide scalar")
 
             .def("fill_", &PyTensor::fill_, nb::rv_policy::reference, "Fill tensor with value in-place")
             .def("zero_", &PyTensor::zero_, nb::rv_policy::reference, "Zero tensor in-place")
@@ -1833,11 +1887,12 @@ namespace lfs::python {
 
             // __array__ protocol for zero-copy NumPy interop (CPU only)
             // Allows: np.asarray(tensor) for zero-copy when tensor is CPU + contiguous
-            .def("__array__", [](PyTensor& self, nb::object dtype) -> nb::object {
-                (void)dtype;              // We return our native dtype, ignore requested dtype
-                return self.numpy(false); // Zero-copy
-            },
-                 nb::arg("dtype") = nb::none(), "Return numpy array view (zero-copy for CPU contiguous tensors)");
+            .def(
+                "__array__", [](PyTensor& self, nb::object dtype) -> nb::object {
+                    (void)dtype;              // We return our native dtype, ignore requested dtype
+                    return self.numpy(false); // Zero-copy
+                },
+                nb::arg("dtype") = nb::none(), "Return numpy array view (zero-copy for CPU contiguous tensors)");
     }
 
 } // namespace lfs::python
