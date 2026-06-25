@@ -630,6 +630,9 @@ namespace lfs::core {
             if (j.contains("print_status_freq_num")) {
                 params.print_status_freq_num = j["print_status_freq_num"];
             }
+            if (j.contains("use_8bit_color")) {
+                params.use_8bit_color = j["use_8bit_color"];
+            }
 
             return params;
         }
@@ -642,6 +645,7 @@ namespace lfs::core {
             loading_json["use_fs_cache"] = use_fs_cache;
             loading_json["print_cache_status"] = print_cache_status;
             loading_json["print_status_freq_num"] = print_status_freq_num;
+            loading_json["use_8bit_color"] = use_8bit_color;
 
             return loading_json;
         }

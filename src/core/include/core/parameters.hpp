@@ -221,7 +221,7 @@ namespace lfs::core {
             bool use_fs_cache = true;
             bool print_cache_status = true;
             int print_status_freq_num = 500; // every print_status_freq_num calls for load print cache status
-
+            bool use_8bit_color = true;
             nlohmann::json to_json() const;
             static LoadingParams from_json(const nlohmann::json& j);
         };

@@ -4448,6 +4448,7 @@ namespace lfs::training {
             pipelined_config.prefetch_count = 8;
             pipelined_config.output_queue_size = 4;
             pipelined_config.io_threads = 2;
+            pipelined_config.use_16bits_pixel_depth = !params_.dataset.loading_params.use_8bit_color;
 
             // Non-JPEG images (PNG, WebP) need CPU decoding - use more threads until cache warms
             constexpr float NON_JPEG_THRESHOLD = 0.1f;
