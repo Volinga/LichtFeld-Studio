@@ -31,13 +31,6 @@ namespace {
         }
     };
 
-    //template <>
-    //struct PixelTraits<uint16_t> {
-    //    __device__ __forceinline__ static float load_and_normalize(const uint16_t* ptr, int idx) {
-    //        return static_cast<float>(ptr[idx]) / 65535.f;
-    //    }
-    //};
-
     template <>
     struct PixelTraits<float> {
         __device__ __forceinline__ static float load_and_normalize(const float* ptr, int idx) {

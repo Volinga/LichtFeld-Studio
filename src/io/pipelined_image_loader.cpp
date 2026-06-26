@@ -1217,8 +1217,12 @@ namespace lfs::io {
                                 apply_requested_undistort(tensor, batch[i].params);
 
                                 try {
-                                    auto jpeg_bytes = nvcodec->encode_to_jpeg(
-                                        tensor, config_.cache_jpeg_quality, batch[i].params.cuda_stream);
+                                    std::vector<uint8_t> jpeg_bytes;
+                                    if (config_.use_16bits_pixel_depth) {
+                                        jpeg_bytes = nvcodec->encode_to_jpeg2k(tensor, nullptr);
+                                    } else {
+                                        jpeg_bytes = nvcodec->encode_to_jpeg(tensor, config_.cache_jpeg_quality, nullptr);
+                                    }
                                     save_to_fs_cache(batch[i].cache_key, jpeg_bytes);
                                     put_in_jpeg_cache(
                                         batch[i].cache_key,
@@ -1623,12 +1627,10 @@ namespace lfs::io {
 
                             if (config_.use_16bits_pixel_depth) {
                                 jpeg_bytes = nvcodec->encode_to_jpeg2k(decoded, nullptr);
-                                save_to_fs_cache(item.cache_key, jpeg_bytes);
                             } else {
-                                jpeg_bytes = nvcodec->encode_to_jpeg(
-                                    decoded, config_.cache_jpeg_quality, nullptr);
-                                save_to_fs_cache(item.cache_key, jpeg_bytes);
+                                jpeg_bytes = nvcodec->encode_to_jpeg(decoded, config_.cache_jpeg_quality, nullptr);
                             }
+                            save_to_fs_cache(item.cache_key, jpeg_bytes);
                             put_in_jpeg_cache(item.cache_key,
                                               std::make_shared<std::vector<uint8_t>>(std::move(jpeg_bytes)));
                         } catch (...) {
