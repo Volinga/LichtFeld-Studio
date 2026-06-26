@@ -647,6 +647,9 @@ namespace lfs::training {
                 request.params.resize_factor = dataset_->get_resize_factor();
                 request.params.max_width = dataset_->get_max_width();
                 request.params.output_uint8 = true;
+                if (config_.use_16bits_pixel_depth) {
+                    request.params.output_uint8 = false;
+                }
                 if (cam->is_undistort_prepared()) {
                     request.undistort = &cam->undistort_params();
                     request.params.undistort = request.undistort;
