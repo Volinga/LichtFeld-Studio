@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <numeric>
 #include <print>
+#include <utility>
 
 // SIMD intrinsics for CPU optimization
 #if defined(__AVX2__)
@@ -430,6 +431,11 @@ namespace lfs::core {
             return *this;
         }
 
+        const size_t old_capacity = state_ ? state_->capacity : 0;
+        const size_t new_capacity = other.state_ ? other.state_->capacity : 0;
+        void* const old_data = data_;
+        void* const new_data = other.data_;
+
         data_ = other.data_;
         data_owner_ = other.data_owner_;
         shape_ = other.shape_;
@@ -443,11 +449,9 @@ namespace lfs::core {
 #ifndef NDEBUG
         view_generation_snapshot_ = other.view_generation_snapshot_;
 #endif
-        if (state_ && other.state_ &&
-            state_->capacity != other.state_->capacity &&
-            state_->capacity > 1000000) {
-            LOG_WARN("Assignment operator: LOSING CAPACITY! this.capacity={} → other.capacity={}, this.data_={}, other.data_={}",
-                     state_->capacity, other.state_->capacity, data_, other.data_);
+        if (old_capacity > 1000000 && new_capacity < old_capacity) {
+            LOG_WARN("Tensor assignment reduced capacity: old_capacity={} -> new_capacity={}, old_data={}, new_data={}",
+                     old_capacity, new_capacity, old_data, new_data);
         }
         state_ = std::make_shared<TensorState>(*other.state_);
         id_ = next_id_++;
