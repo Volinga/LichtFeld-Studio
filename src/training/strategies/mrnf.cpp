@@ -1597,12 +1597,13 @@ namespace lfs::training {
     void MRNF::set_optimization_params(const lfs::core::param::OptimizationParameters& params) {
         _params = std::make_unique<const lfs::core::param::OptimizationParameters>(params);
 
-        if (_mean_lr_unscaled <= 0.0) {
-            _mean_lr_unscaled = params.means_lr;
-        }
-        if (_scale_lr_current <= 0.0) {
-            _scale_lr_current = params.scaling_lr;
-        }
+        // Set the base LRs unconditionally from the current run's params (no
+        // "<= 0.0" guard): a color-only sidecar sets means_lr / scaling_lr to 0 to
+        // freeze geometry, and an explicit zero must take effect even if a positive
+        // value was previously cached. MRNF's positional noise is scaled by the Means
+        // LR, so a zero Means LR also stops the noise — no separate gate needed.
+        _mean_lr_unscaled = params.means_lr;
+        _scale_lr_current = params.scaling_lr;
 
         refresh_decay_schedule_from_current_state();
 
