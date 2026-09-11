@@ -211,7 +211,12 @@ namespace lfs::training {
         const int64_t budget = _params->max_cap;
         this->_initial_points = _splat_data->size();
 
-        this->_total_steps = static_cast<int>((_params->stop_refine - _params->start_refine) / _params->refine_every) + 2;
+        // Guard against an inverted/empty refine window (refinement disabled): an unsigned
+        // subtraction would underflow and produce a bogus step count / reserve size.
+        const size_t refine_span = (_params->stop_refine > _params->start_refine)
+                                       ? (_params->stop_refine - _params->start_refine)
+                                       : 0;
+        this->_total_steps = static_cast<int>(refine_span / _params->refine_every) + 2;
 
         std::vector<int64_t> values;
         values.reserve(_total_steps);

@@ -9,6 +9,7 @@
 #include "core/logger.hpp"
 #include "core/path_utils.hpp"
 #include "io/error.hpp"
+#include "optimizer/adam_optimizer.hpp"
 #include "strategies/istrategy.hpp"
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -302,6 +303,13 @@ namespace lfs::training {
                                        "' vs '" + strategy.strategy_type() + "'");
             }
 
+            // Capture the caller's (current run's) optimization params before the
+            // checkpoint's params_json overwrites params.optimization below. The
+            // color-only sidecar / frozen-geometry fix re-applies THESE learning rates
+            // after deserialization so the current run's values (e.g. zeroed geometric
+            // LRs) win over the checkpoint's baked-in ones.
+            const lfs::core::param::OptimizationParameters current_run_optimization = params.optimization;
+
             // Load params from checkpoint up front so strategy internals can be synced before deserialization.
             const auto strategy_state_pos = file.tellg();
             if (header.params_json_size > 0) {
@@ -353,6 +361,35 @@ namespace lfs::training {
                 file,
                 make_checkpoint_tensor_allocator(std::move(tensor_allocator), target_capacity));
             strategy.deserialize(file);
+
+            // AdamOptimizer::deserialize just restored the learning rates baked into the
+            // checkpoint (the base run's values). Re-apply the CURRENT run's learning rates
+            // onto the live optimizer so they win. This is what lets a color-only sidecar
+            // (all geometric LRs = 0) actually freeze geometry: without it, the base
+            // checkpoint's means/scale/rotation LRs leak back in and positions keep drifting
+            // (and MCMC's positional noise, scaled by the global LR, scatters them). Uses the
+            // captured current-run params, not the checkpoint's restored values. Applied after
+            // the single strategy.deserialize(file) above — it does NOT re-read the stream, so
+            // the bilateral-grid / PPISP / params-JSON bytes that follow stay intact.
+            {
+                auto& reopt = strategy.get_optimizer();
+                const auto& current = current_run_optimization;
+                const float scene_scale = strategy.get_model().get_scene_scale();
+                const float means_lr = current.means_lr * scene_scale;
+                reopt.set_lr(means_lr); // global LR: drives means AND MCMC positional noise
+                reopt.set_param_lr(ParamType::Means, means_lr);
+                reopt.set_param_lr(ParamType::Sh0, current.shs_lr);
+                reopt.set_param_lr(ParamType::ShN, current.shs_lr / 20.0f);
+                reopt.set_param_lr(ParamType::Scaling, current.scaling_lr);
+                reopt.set_param_lr(ParamType::Rotation, current.rotation_lr);
+                reopt.set_param_lr(ParamType::Opacity, current.opacity_lr);
+                LOG_INFO("Checkpoint resume LR re-applied (current run): means={:.3e} "
+                         "(= means_lr {:.3e} x scene_scale {:.3f}) sh0={:.3e} shN={:.3e} "
+                         "scaling={:.3e} rotation={:.3e} opacity={:.3e}",
+                         means_lr, current.means_lr, scene_scale, current.shs_lr,
+                         current.shs_lr / 20.0f, current.scaling_lr, current.rotation_lr,
+                         current.opacity_lr);
+            }
 
             // Bilateral grid (if present in checkpoint)
             if (has_flag(header.flags, CheckpointFlags::HAS_BILATERAL_GRID)) {

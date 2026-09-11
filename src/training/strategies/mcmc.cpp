@@ -628,6 +628,13 @@ namespace lfs::training {
         LFS_TRACE("kernel.mcmc.add_noise");
         using namespace lfs::core;
 
+        // Frozen-geometry runs (e.g. a color-only sidecar) set means_lr = 0 to keep
+        // positions fixed. MCMC's positional noise is scaled by the GLOBAL optimizer LR
+        // (not means_lr), so a zero means_lr alone would not stop it — guard it explicitly.
+        if (_params->means_lr <= 0.0f) {
+            return;
+        }
+
         // Get current learning rate from optimizer (after scheduler has updated it)
         const float current_lr = _optimizer->get_lr() * NOISE_LR;
 
